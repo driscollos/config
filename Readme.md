@@ -1,4 +1,8 @@
+![License](https://img.shields.io/badge/License-This%20repo%20is%20licensed%20under%20the%20MIT%20license%20-blue)
+
 ![Library](https://img.shields.io/badge/Library%20Package%20-This%20package%20contains%20a%20library-green)
+
+This repo is licensed under the MIT license. Please read the full license [here](https://github.com/driscollos/config/blob/main/LICENSE.md). 
 
 # Parameters
 
