@@ -7,19 +7,22 @@ package sourcer
 import (
 	"encoding/json"
 	"fmt"
+	fileReader "github.com/driscollos/config/internal/sourcer/file-reader"
 	"gopkg.in/yaml.v3"
 	"os"
 	"reflect"
 	"strings"
 )
 
+//go:generate mockgen -destination=../mocks/mock-data-sourcer.go -package=mocks . Sourcer
 type Sourcer interface {
 	Get(path string) string
 	Source(path string)
 }
 
 type sourcer struct {
-	sources struct {
+	fileReader fileReader.FileReader
+	sources    struct {
 		files          []string
 		useCommandLine bool
 		useEnvironment bool
@@ -35,7 +38,7 @@ func (s *sourcer) setup() error {
 
 	s.values = make([]map[interface{}]interface{}, 0)
 	for _, file := range s.sources.files {
-		bytes, err := os.ReadFile(file)
+		bytes, err := s.fileReader.Read(file)
 		if err != nil {
 			if len(s.sources.files) == 1 {
 				return fmt.Errorf("could not read from source file : %s", file)

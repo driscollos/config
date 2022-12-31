@@ -1,12 +1,9 @@
-// Copyright 2022 John Driscoll (https://github.com/jddcode)
-// This code is licensed under the MIT license
-// Please see LICENSE.md
-
 package populator
 
 import (
 	"fmt"
 	"github.com/driscollos/config/internal/analyser"
+	durationParser "github.com/driscollos/config/internal/populator/duration-parser"
 	"github.com/driscollos/config/internal/sourcer"
 	"github.com/driscollos/config/internal/structs"
 	"reflect"
@@ -20,8 +17,9 @@ type Populator interface {
 }
 
 type populator struct {
-	analyser analyser.Analyser
-	sourcer  sourcer.Sourcer
+	analyser       analyser.Analyser
+	sourcer        sourcer.Sourcer
+	durationParser durationParser.Parser
 }
 
 func (p populator) Populate(container interface{}) error {
@@ -64,8 +62,10 @@ func (p populator) populateField(path string, def structs.FieldDefinition, conta
 		asInt, _ := strconv.Atoi(val)
 		container.SetInt(int64(asInt))
 	case "time.Duration":
-		asInt, _ := strconv.Atoi(val)
-		container.SetInt(int64(asInt))
+		duration, err := p.durationParser.Parse(val)
+		if err == nil {
+			container.SetInt(int64(duration))
+		}
 	case "time.Time":
 		container.Set(reflect.ValueOf(p.time(def.Tags.Get("layout"), val)))
 	case "float32":
