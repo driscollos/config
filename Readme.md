@@ -124,6 +124,16 @@ These functions will take environment variables and provide them in various form
 * `String(param string) string`
 * `StringWithDefault(param, defaultVal string) string`
 
+## Duration Supported Formats
+
+Parsing of `time.Duration` default values in struct tags supports a variety of conventions. All of the following are supported defaults:
+
+* `1s1m1h1d`
+* `1s, 1m, 1h, 1d`
+* `1 second, 1 minute, 1 hour, 1 day`
+* `1 sec, 1 minute, 1 hr, 1d`
+* `1 second, 1 min, 1hr, 1 day`
+
 ## Specifying a file to source data from
 
 You are able to specify a source yaml file that config should use as the exclusive source of information.
