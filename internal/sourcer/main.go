@@ -10,7 +10,20 @@ func New() Sourcer {
 	s := sourcer{
 		fileReader: fileReader.New(),
 	}
-	s.sources.files = []string{"build/config.yml", "config/config.yml", "config.yml", "env.yml", "config.local.yml", "env.local.yml"}
+	s.sources.files = []string{
+		"build/config.yml",
+		"build/config.json",
+		"config/config.yml",
+		"config/config.json",
+		"config.yml",
+		"config.json",
+		"env.yml",
+		"env.json",
+		"config.local.yml",
+		"config.local.json",
+		"env.local.yml",
+		"env.local.json",
+	}
 	s.sources.useCommandLine = true
 	s.sources.useEnvironment = true
 	return &s
