@@ -29,7 +29,7 @@ type sourcer struct {
 		useEnvironment bool
 	}
 	isSetup bool
-	values  []map[interface{}]interface{}
+	values  []map[string]interface{}
 }
 
 func (s *sourcer) setup() error {
@@ -37,7 +37,7 @@ func (s *sourcer) setup() error {
 		return nil
 	}
 
-	s.values = make([]map[interface{}]interface{}, 0)
+	s.values = make([]map[string]interface{}, 0)
 	for _, file := range s.sources.files {
 		bytes, err := s.fileReader.Read(file)
 		if err != nil {
@@ -53,14 +53,12 @@ func (s *sourcer) setup() error {
 }
 
 func (s *sourcer) loadFromSource(filename string, source []byte) error {
-	fmt.Println("loading data from", filename)
-	data := make(map[interface{}]interface{})
+	data := make(map[string]interface{})
 	bits := strings.Split(filename, ".")
 	if len(bits) < 2 {
 		return errors.New(ErrorUnknownFileFormat)
 	}
 
-	fmt.Println("extension", bits[len(bits)-1])
 	switch bits[len(bits)-1] {
 	case "yml", "yaml":
 		if err := yaml.Unmarshal(source, &data); err != nil {
@@ -120,7 +118,7 @@ func (s *sourcer) Get(path string) string {
 	return strings.TrimSpace(fmt.Sprintf("%v", retVal))
 }
 
-func (s *sourcer) get(source map[interface{}]interface{}, path string) interface{} {
+func (s *sourcer) get(source map[string]interface{}, path string) interface{} {
 	s.setup()
 	bits := strings.Split(path, "_")
 	if len(bits) == 1 {
