@@ -47,6 +47,7 @@ func (s *sourcer) setup() error {
 		}
 		s.loadFromSource(bytes)
 	}
+	s.isSetup = true
 	return nil
 }
 
@@ -66,7 +67,7 @@ func (s *sourcer) Source(path string) {
 	s.isSetup = false
 }
 
-func (s sourcer) Get(path string) string {
+func (s *sourcer) Get(path string) string {
 	s.setup()
 	var retVal interface{}
 
@@ -100,7 +101,7 @@ func (s sourcer) Get(path string) string {
 	return strings.TrimSpace(fmt.Sprintf("%v", retVal))
 }
 
-func (s sourcer) get(source map[interface{}]interface{}, path string) interface{} {
+func (s *sourcer) get(source map[interface{}]interface{}, path string) interface{} {
 	s.setup()
 	bits := strings.Split(path, "_")
 	if len(bits) == 1 {
@@ -130,7 +131,7 @@ func (s sourcer) get(source map[interface{}]interface{}, path string) interface{
 	return nil
 }
 
-func (s sourcer) commandLineArgs() map[string]string {
+func (s *sourcer) commandLineArgs() map[string]string {
 	bits := strings.Split(strings.Join(os.Args, " "), "--")
 	inEscapedArg := false
 	escapedArg := ""
