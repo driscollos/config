@@ -6,6 +6,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"os"
 	"strings"
 	"testing"
 )
@@ -73,23 +74,33 @@ Age: 41
 			})
 		})
 
-		When("a value exists in a yaml file and in a commandline argument", func() {
-			It("should prioritise the commandline argument", func() {
-				mockTerminalReader.EXPECT().Get("Name").Return("Pete", nil)
-				mockTerminalReader.EXPECT().Get(gomock.Any()).Return("", errors.New("not_found")).Times(3)
+		When("a value exists in a file, an enivornment variable and the terminal", func() {
+			It("should prioritise the three sources appropriately", func() {
+				mockTerminalReader.EXPECT().Get("Scores_One").Return("1", nil)
+				mockTerminalReader.EXPECT().Get("Scores_Two").Return("", errors.New("not_found"))
+				mockTerminalReader.EXPECT().Get("Scores_Three").Return("", errors.New("not_found"))
+				os.Setenv("Scores_One", "2")
+				os.Setenv("Scores_Two", "2")
 				mockFileReader.EXPECT().Read("test.yaml").Return([]byte(strings.TrimSpace(`
-Name: Bob
-Hobbies:
-  Sports:
-    First: Skating
-    Best: Running
-Age: 41
+Scores:
+  One: 3
+  Two: 3
+  Three: 3
 				`)), nil)
 				mockFileReader.EXPECT().Read("test.json").Return(nil, errors.New("file not found"))
-				Expect(mySourcer.Get("Name")).To(Equal("Pete"))
-				Expect(mySourcer.Get("Hobbies_Sports_First")).To(Equal("Skating"))
-				Expect(mySourcer.Get("Hobbies_Sports_Best")).To(Equal("Running"))
-				Expect(mySourcer.Get("Age")).To(Equal("41"))
+				Expect(mySourcer.Get("Scores_One")).To(Equal("1"))
+				Expect(mySourcer.Get("Scores_Two")).To(Equal("2"))
+				Expect(mySourcer.Get("Scores_Three")).To(Equal("3"))
+			})
+		})
+
+		When("a source is specified manually", func() {
+			It("should use this over all other sources", func() {
+				mockFileReader.EXPECT().Read("override.yaml").Return([]byte(strings.TrimSpace(`
+Name: Bob
+				`)), nil)
+				mySourcer.Source("override.yaml")
+				Expect(mySourcer.Get("Name")).To(Equal("Bob"))
 			})
 		})
 	})
