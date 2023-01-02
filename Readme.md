@@ -6,7 +6,7 @@ This repo is licensed under the MIT license. Please read the full license [here]
 
 # Parameters
 
-This library allows you to read parameters from a variety of sources; environment variables, commandline arguments and yaml configuration
+This library allows you to read parameters from a variety of sources; environment variables, commandline arguments and json or yaml configuration
 files. You can either access variables by function call, or populate a configuration struct.
 
 Configuration structs can be nested to as many levels as you like.
@@ -16,11 +16,17 @@ Values are sourced from various places. These are the sources, in order of prece
 * Commandline arguments eg `--name John`
 * Environment variables
 * Yaml files
+* * `env.local.json`
 * * `env.local.yml`
+* * `config.local.json`
 * * `config.local.yml`
+* * `env.json`
 * * `env.yml`
+* * `config.json`
 * * `config.yml`
+* * `config/config.json`
 * * `config/config.yml`
+* * `build/config.json`
 * * `build/config.yml`
 * default values in struct tags eg `default:"MyDefaultValue"`
 
