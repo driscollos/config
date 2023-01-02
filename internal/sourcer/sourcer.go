@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	fileReader "github.com/driscollos/config/internal/sourcer/file-reader"
+	terminalReader "github.com/driscollos/config/internal/sourcer/terminal-reader"
 	"gopkg.in/yaml.v3"
 	"os"
 	"reflect"
@@ -22,7 +23,10 @@ type Sourcer interface {
 }
 
 type sourcer struct {
-	fileReader fileReader.FileReader
+	readers struct {
+		file fileReader.FileReader
+		terminal terminalReader.TerminalReader
+	}
 	sources    struct {
 		files          []string
 		useCommandLine bool
@@ -39,7 +43,7 @@ func (s *sourcer) setup() error {
 
 	s.values = make([]map[string]interface{}, 0)
 	for _, file := range s.sources.files {
-		bytes, err := s.fileReader.Read(file)
+		bytes, err := s.readers.file.Read(file)
 		if err != nil {
 			if len(s.sources.files) == 1 {
 				return fmt.Errorf("could not read from source file : %s", file)
@@ -89,8 +93,8 @@ func (s *sourcer) Get(path string) string {
 	var retVal interface{}
 
 	if s.sources.useCommandLine {
-		argVal, exists := s.commandLineArgs()[path]
-		if exists {
+		argVal, err := s.readers.terminal.Get(path)
+		if err == nil {
 			return argVal
 		}
 	}
@@ -146,47 +150,4 @@ func (s *sourcer) get(source map[string]interface{}, path string) interface{} {
 		extract = extract.(map[string]interface{})[part]
 	}
 	return nil
-}
-
-func (s *sourcer) commandLineArgs() map[string]string {
-	bits := strings.Split(strings.Join(os.Args, " "), "--")
-	inEscapedArg := false
-	escapedArg := ""
-	escapedArgName := ""
-	arguments := make(map[string]string)
-
-	for _, bit := range bits[1:] {
-		if inEscapedArg {
-			if !strings.Contains(bit, "]") {
-				escapedArg += "--" + bit
-				continue
-			} else {
-				escapedArg += "--" + bit[:strings.Index(bit, "]")]
-				arguments[escapedArgName] = escapedArg
-
-				escapedArg = ""
-				escapedArgName = ""
-				inEscapedArg = false
-				continue
-			}
-		}
-
-		parts := strings.Split(bit, " ")
-		if strings.Contains(bit, "[") && !strings.Contains(bit, "]") {
-			inEscapedArg = true
-			escapedArg = bit[strings.Index(bit, "[")+1:]
-			escapedArgName = parts[0]
-		} else {
-			myVal := strings.Join(parts[1:], " ")
-			if len(myVal) < 1 {
-				myVal = "1"
-			}
-
-			myVal = strings.Trim(strings.TrimSpace(myVal), "[")
-			myVal = strings.Trim(myVal, "]")
-			arguments[parts[0]] = myVal
-		}
-	}
-
-	return arguments
 }

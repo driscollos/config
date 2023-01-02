@@ -4,12 +4,15 @@
 
 package sourcer
 
-import fileReader "github.com/driscollos/config/internal/sourcer/file-reader"
+import (
+	fileReader "github.com/driscollos/config/internal/sourcer/file-reader"
+	terminalReader "github.com/driscollos/config/internal/sourcer/terminal-reader"
+)
 
 func New() Sourcer {
-	s := sourcer{
-		fileReader: fileReader.New(),
-	}
+	s := sourcer{}
+	s.readers.file = fileReader.New()
+	s.readers.terminal = terminalReader.New()
 
 	s.sources.files = []string{
 		"build/config.yml",
