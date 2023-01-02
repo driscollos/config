@@ -6,6 +6,7 @@ package sourcer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	fileReader "github.com/driscollos/config/internal/sourcer/file-reader"
 	"gopkg.in/yaml.v3"
@@ -28,7 +29,7 @@ type sourcer struct {
 		useEnvironment bool
 	}
 	isSetup bool
-	values  []map[interface{}]interface{}
+	values  []map[string]interface{}
 }
 
 func (s *sourcer) setup() error {
@@ -36,7 +37,7 @@ func (s *sourcer) setup() error {
 		return nil
 	}
 
-	s.values = make([]map[interface{}]interface{}, 0)
+	s.values = make([]map[string]interface{}, 0)
 	for _, file := range s.sources.files {
 		bytes, err := s.fileReader.Read(file)
 		if err != nil {
@@ -45,16 +46,33 @@ func (s *sourcer) setup() error {
 			}
 			continue
 		}
-		s.loadFromSource(bytes)
+		s.loadFromSource(file, bytes)
 	}
+	s.isSetup = true
 	return nil
 }
 
-func (s *sourcer) loadFromSource(source []byte) error {
-	data := make(map[interface{}]interface{})
-	if err := yaml.Unmarshal(source, &data); err != nil {
-		return err
+func (s *sourcer) loadFromSource(filename string, source []byte) error {
+	data := make(map[string]interface{})
+	bits := strings.Split(filename, ".")
+	if len(bits) < 2 {
+		return errors.New(ErrorUnknownFileFormat)
 	}
+
+	switch bits[len(bits)-1] {
+	case "yml", "yaml":
+		if err := yaml.Unmarshal(source, &data); err != nil {
+			return err
+		}
+	case "json":
+		if err := json.Unmarshal(source, &data); err != nil {
+			fmt.Println("json error:", err.Error())
+			return err
+		}
+	default:
+		return errors.New(ErrorUnknownFileFormat)
+	}
+
 	s.values = append(s.values, data)
 	return nil
 }
@@ -66,7 +84,7 @@ func (s *sourcer) Source(path string) {
 	s.isSetup = false
 }
 
-func (s sourcer) Get(path string) string {
+func (s *sourcer) Get(path string) string {
 	s.setup()
 	var retVal interface{}
 
@@ -100,7 +118,7 @@ func (s sourcer) Get(path string) string {
 	return strings.TrimSpace(fmt.Sprintf("%v", retVal))
 }
 
-func (s sourcer) get(source map[interface{}]interface{}, path string) interface{} {
+func (s *sourcer) get(source map[string]interface{}, path string) interface{} {
 	s.setup()
 	bits := strings.Split(path, "_")
 	if len(bits) == 1 {
@@ -130,7 +148,7 @@ func (s sourcer) get(source map[interface{}]interface{}, path string) interface{
 	return nil
 }
 
-func (s sourcer) commandLineArgs() map[string]string {
+func (s *sourcer) commandLineArgs() map[string]string {
 	bits := strings.Split(strings.Join(os.Args, " "), "--")
 	inEscapedArg := false
 	escapedArg := ""

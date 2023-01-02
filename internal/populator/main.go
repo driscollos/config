@@ -7,7 +7,7 @@ import (
 )
 
 func New(source sourcer.Sourcer) Populator {
-	return populator{
+	return &populator{
 		analyser:       analyser.New(),
 		sourcer:        source,
 		durationParser: durationParser.New(),
