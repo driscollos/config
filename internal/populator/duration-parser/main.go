@@ -4,6 +4,6 @@
 
 package durationParser
 
-func New() Parser {
+func New() DurationParser {
 	return parser{}
 }

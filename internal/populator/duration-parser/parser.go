@@ -10,7 +10,8 @@ import (
 	"time"
 )
 
-type Parser interface {
+//go:generate mockgen -destination=../../mocks/mock-duration-parser.go -package=mocks . DurationParser
+type DurationParser interface {
 	Parse(duration string) (time.Duration, error)
 }
 

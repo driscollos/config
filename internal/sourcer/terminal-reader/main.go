@@ -2,8 +2,10 @@
 // This code is licensed under the MIT license
 // Please see LICENSE.md
 
-package fileReader
+package terminalReader
 
-func New() FileReader {
-	return reader{}
+func New() TerminalReader {
+	t := terminalReader{}
+	t.parse()
+	return &t
 }
