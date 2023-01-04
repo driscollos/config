@@ -13,7 +13,7 @@ func TestSuite(t *testing.T) {
 	RunSpecs(t, "Unit Tests")
 }
 
-var _ = Describe("Cron Blacklist Update Handler", func() {
+var _ = Describe("Config Unit Tests", func() {
 	var (
 		mockController *gomock.Controller
 		mockSourcer    *mocks.MockSourcer

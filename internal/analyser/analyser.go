@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+//go:generate mockgen -destination=../mocks/mock-data-analyser.go -package=mocks . Analyser
 type Analyser interface {
 	Analyse(thing interface{}) []structs.FieldDefinition
 }

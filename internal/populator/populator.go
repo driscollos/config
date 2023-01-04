@@ -23,7 +23,7 @@ type Populator interface {
 type populator struct {
 	analyser       analyser.Analyser
 	sourcer        sourcer.Sourcer
-	durationParser durationParser.Parser
+	durationParser durationParser.DurationParser
 }
 
 func (p populator) Populate(container interface{}) error {
@@ -79,17 +79,20 @@ func (p populator) populateField(path string, def structs.FieldDefinition, conta
 		fVal, _ := strconv.ParseFloat(val, 64)
 		container.SetFloat(fVal)
 	case "bool":
-		if val == "true" {
+		switch val {
+		case "true", "yes", "1", "on":
 			container.SetBool(true)
-		} else {
+		default:
 			container.SetBool(false)
 		}
 	case "[]string":
-		allVals := make([]string, 0)
-		for _, subVal := range strings.Split(val, ",") {
-			allVals = append(allVals, subVal[1:len(subVal)-1])
+		if len(val) > 0 {
+			allVals := make([]string, 0)
+			for _, subVal := range strings.Split(val, ",") {
+				allVals = append(allVals, subVal)
+			}
+			container.Set(reflect.ValueOf(allVals))
 		}
-		container.Set(reflect.ValueOf(allVals))
 	case "[]int", "[]int8", "[]int16", "[]int32", "[]int64":
 		allVals := make([]int, 0)
 		for _, subVal := range strings.Split(val, ",") {
@@ -99,7 +102,48 @@ func (p populator) populateField(path string, def structs.FieldDefinition, conta
 			}
 		}
 		container.Set(reflect.ValueOf(allVals))
+	case "map[string]string":
+		allVals := make(map[string]string)
+		for _, subVal := range strings.Split(val, ",") {
+			parts := strings.Split(strings.TrimSpace(subVal), ":")
+			if len(parts) != 2 || len(parts[0]) < 1 || len(parts[1]) < 1 {
+				continue
+			}
+			allVals[parts[0]] = parts[1]
+		}
+		container.Set(reflect.ValueOf(allVals))
+	case "map[string]int":
+		allVals := make(map[string]int)
+		for _, subVal := range strings.Split(val, ",") {
+			parts := strings.Split(strings.TrimSpace(subVal), ":")
+			if len(parts) != 2 || len(parts[0]) < 1 || len(parts[1]) < 1 {
+				continue
+			}
+			intVal, err := strconv.Atoi(parts[1])
+			if err == nil {
+				allVals[parts[0]] = intVal
+			} else {
+				allVals[parts[0]] = 0
+			}
+		}
+		container.Set(reflect.ValueOf(allVals))
+	case "map[string]int64":
+		allVals := make(map[string]int64)
+		for _, subVal := range strings.Split(val, ",") {
+			parts := strings.Split(strings.TrimSpace(subVal), ":")
+			if len(parts) != 2 || len(parts[0]) < 1 || len(parts[1]) < 1 {
+				continue
+			}
+			intVal, err := strconv.Atoi(parts[1])
+			if err == nil {
+				allVals[parts[0]] = int64(intVal)
+			} else {
+				allVals[parts[0]] = 0
+			}
+		}
+		container.Set(reflect.ValueOf(allVals))
 	}
+
 	return nil
 }
 

@@ -1,3 +1,7 @@
+// Copyright 2022 John Driscoll (https://github.com/jddcode)
+// This code is licensed under the MIT license
+// Please see LICENSE.md
+
 package sourcer
 
 import (
@@ -16,12 +20,12 @@ func TestSuite(t *testing.T) {
 	RunSpecs(t, "Unit Tests")
 }
 
-var _ = Describe("Cron Blacklist Update Handler", func() {
+var _ = Describe("Sourcer Unit Tests", func() {
 	var (
-		mockController *gomock.Controller
-		mockFileReader *mocks.MockFileReader
+		mockController     *gomock.Controller
+		mockFileReader     *mocks.MockFileReader
 		mockTerminalReader *mocks.MockTerminalReader
-		mySourcer sourcer
+		mySourcer          sourcer
 	)
 
 	BeforeEach(func() {
@@ -33,7 +37,7 @@ var _ = Describe("Cron Blacklist Update Handler", func() {
 		mySourcer.sources.useEnvironment = true
 		mySourcer.readers.file = mockFileReader
 		mySourcer.readers.terminal = mockTerminalReader
-		mySourcer.sources.files = []string{"test.yaml","test.json"}
+		mySourcer.sources.files = []string{"test.yaml", "test.json"}
 	})
 
 	AfterEach(func() {
