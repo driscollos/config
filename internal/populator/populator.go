@@ -73,11 +73,19 @@ func (p populator) populateField(path string, def structs.FieldDefinition, conta
 	case "time.Time":
 		container.Set(reflect.ValueOf(p.time(def.Tags.Get("layout"), val)))
 	case "float32":
-		fVal, _ := strconv.ParseFloat(val, 32)
-		container.SetFloat(fVal)
+		fVal, err := strconv.ParseFloat(val, 32)
+		if err == nil {
+			container.SetFloat(fVal)
+		} else {
+			container.SetFloat(0)
+		}
 	case "float64":
-		fVal, _ := strconv.ParseFloat(val, 64)
-		container.SetFloat(fVal)
+		fVal, err := strconv.ParseFloat(val, 64)
+		if err == nil {
+			container.SetFloat(fVal)
+		} else {
+			container.SetFloat(0)
+		}
 	case "bool":
 		switch val {
 		case "true", "yes", "1", "on":

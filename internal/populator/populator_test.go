@@ -123,5 +123,104 @@ var _ = Describe("Cron Blacklist Update Handler", func() {
 				Expect(myStruct.BoolFour).To(BeTrue())
 			})
 		})
+		When("a struct is provided with a float32 in it", func() {
+			When("the float is invalid", func() {
+				It("should populate the struct with a zero", func() {
+					myStruct := struct {
+						Age float32
+					}{}
+
+					fieldDefs := []structs.FieldDefinition{
+						{
+							Name: "Age",
+							Type: "float32",
+						},
+					}
+					mockAnalyser.EXPECT().Analyse(gomock.Any()).Return(fieldDefs)
+					mockSourcer.EXPECT().Get("Age").Return("--invalid--")
+
+					myPopulator.Populate(&myStruct)
+					Expect(myStruct.Age).To(Equal(float32(0)))
+				})
+			})
+			When("the float is valid", func() {
+				It("should populate the struct with the float value", func() {
+					myStruct := struct {
+						Age float32
+					}{}
+
+					fieldDefs := []structs.FieldDefinition{
+						{
+							Name: "Age",
+							Type: "float32",
+						},
+					}
+					mockAnalyser.EXPECT().Analyse(gomock.Any()).Return(fieldDefs)
+					mockSourcer.EXPECT().Get("Age").Return("60.2")
+
+					myPopulator.Populate(&myStruct)
+					Expect(myStruct.Age).To(Equal(float32(60.20000076293945)))
+				})
+			})
+		})
+		When("a struct is provided with a float64 in it", func() {
+			When("the float is invalid", func() {
+				It("should populate the struct with a zero", func() {
+					myStruct := struct {
+						Age float64
+					}{}
+
+					fieldDefs := []structs.FieldDefinition{
+						{
+							Name: "Age",
+							Type: "float64",
+						},
+					}
+					mockAnalyser.EXPECT().Analyse(gomock.Any()).Return(fieldDefs)
+					mockSourcer.EXPECT().Get("Age").Return("--invalid--")
+
+					myPopulator.Populate(&myStruct)
+					Expect(myStruct.Age).To(Equal(float64(0)))
+				})
+			})
+			When("the float is valid", func() {
+				It("should populate the struct with the float value", func() {
+					myStruct := struct {
+						Age float64
+					}{}
+
+					fieldDefs := []structs.FieldDefinition{
+						{
+							Name: "Age",
+							Type: "float64",
+						},
+					}
+					mockAnalyser.EXPECT().Analyse(gomock.Any()).Return(fieldDefs)
+					mockSourcer.EXPECT().Get("Age").Return("40.5")
+
+					myPopulator.Populate(&myStruct)
+					Expect(myStruct.Age).To(Equal(40.5))
+				})
+			})
+		})
+		When("a struct is provided with a slice of strings inside", func() {
+			It("should separate the value by comma and populate", func() {
+				myStruct := struct {
+					Hobbies []string
+				}{}
+
+				fieldDefs := []structs.FieldDefinition{
+					{
+						Name: "Hobbies",
+						Type: "[]string",
+					},
+				}
+				mockAnalyser.EXPECT().Analyse(gomock.Any()).Return(fieldDefs)
+				mockSourcer.EXPECT().Get("Hobbies").Return("Travel,Adventure")
+
+				myPopulator.Populate(&myStruct)
+				Expect(myStruct.Hobbies).To(Equal([]string{"Travel", "Adventure"}))
+			})
+		})
 	})
 })
