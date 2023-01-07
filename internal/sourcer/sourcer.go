@@ -24,10 +24,10 @@ type Sourcer interface {
 
 type sourcer struct {
 	readers struct {
-		file fileReader.FileReader
+		file     fileReader.FileReader
 		terminal terminalReader.TerminalReader
 	}
-	sources    struct {
+	sources struct {
 		files          []string
 		useCommandLine bool
 		useEnvironment bool

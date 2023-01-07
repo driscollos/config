@@ -5,12 +5,14 @@
 package populator
 
 import (
+	"testing"
+
 	"github.com/driscollos/config/internal/mocks"
+	floatParser "github.com/driscollos/config/internal/populator/float-parser"
 	"github.com/driscollos/config/internal/structs"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"testing"
 )
 
 func TestSuite(t *testing.T) {
@@ -34,6 +36,7 @@ var _ = Describe("Cron Blacklist Update Handler", func() {
 		mockDurationParser = mocks.NewMockDurationParser(mockController)
 		myPopulator = populator{
 			analyser:       mockAnalyser,
+			floatParser:    floatParser.New(),
 			sourcer:        mockSourcer,
 			durationParser: mockDurationParser,
 		}
@@ -159,7 +162,7 @@ var _ = Describe("Cron Blacklist Update Handler", func() {
 					mockSourcer.EXPECT().Get("Age").Return("60.2")
 
 					myPopulator.Populate(&myStruct)
-					Expect(myStruct.Age).To(Equal(float32(60.20000076293945)))
+					Expect(myStruct.Age).To(Equal(float32(60.2)))
 				})
 			})
 		})

@@ -6,14 +6,16 @@ package populator
 
 import (
 	"fmt"
-	"github.com/driscollos/config/internal/analyser"
-	durationParser "github.com/driscollos/config/internal/populator/duration-parser"
-	"github.com/driscollos/config/internal/sourcer"
-	"github.com/driscollos/config/internal/structs"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/driscollos/config/internal/analyser"
+	durationParser "github.com/driscollos/config/internal/populator/duration-parser"
+	floatParser "github.com/driscollos/config/internal/populator/float-parser"
+	"github.com/driscollos/config/internal/sourcer"
+	"github.com/driscollos/config/internal/structs"
 )
 
 type Populator interface {
@@ -22,6 +24,7 @@ type Populator interface {
 
 type populator struct {
 	analyser       analyser.Analyser
+	floatParser    floatParser.FloatParser
 	sourcer        sourcer.Sourcer
 	durationParser durationParser.DurationParser
 }
@@ -80,20 +83,9 @@ func (p populator) populateField(path string, def structs.FieldDefinition, conta
 		}
 	case "time.Time":
 		container.Set(reflect.ValueOf(p.time(def.Tags.Get("layout"), val)))
-	case "float32":
-		fVal, err := strconv.ParseFloat(val, 32)
-		if err == nil {
-			container.SetFloat(fVal)
-		} else {
-			container.SetFloat(0)
-		}
-	case "float64":
-		fVal, err := strconv.ParseFloat(val, 64)
-		if err == nil {
-			container.SetFloat(fVal)
-		} else {
-			container.SetFloat(0)
-		}
+	case "float32", "float64":
+		fVal, _ := p.floatParser.Float64(val)
+		container.SetFloat(fVal)
 	case "bool":
 		switch val {
 		case "true", "yes", "1", "on":
