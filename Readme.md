@@ -119,6 +119,7 @@ This shows we have populated even nested fields from our Yaml file, and override
 
 The following tags are available for structs:
 
+* `src` - specify an alternate variable name to populate the field
 * `default` - specify a default value
 * `required` - if no value is found and no `default` is set, `Populate()` returns an error
 * `literal` - commandline args, env variables and file variables will match either with 
