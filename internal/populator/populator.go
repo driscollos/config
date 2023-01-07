@@ -51,6 +51,7 @@ func (p populator) populate(path string, def []structs.FieldDefinition, containe
 }
 
 func (p populator) populateField(path string, def structs.FieldDefinition, container reflect.Value) error {
+	fmt.Println("path:", path)
 	val := p.findVal(path)
 	if len(val) < 1 {
 		switch def.Tags.Get("literal") {
