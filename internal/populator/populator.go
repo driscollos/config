@@ -51,12 +51,21 @@ func (p populator) populate(path string, def []structs.FieldDefinition, containe
 }
 
 func (p populator) populateField(path string, def structs.FieldDefinition, container reflect.Value) error {
+	fmt.Println("path:", path)
 	val := p.findVal(path)
-	if len(val) < 1 || val == "" {
-		if len(def.DefaultValue) < 1 && def.Required {
-			return fmt.Errorf("field '%s' is required but has no defined or default value", strings.Replace(path, "_", ".", -1))
+	if len(val) < 1 {
+		switch def.Tags.Get("literal") {
+		case "yes", "1", "true", "on":
+		default:
+			val = p.findVal(strings.ToUpper(path))
 		}
-		val = def.DefaultValue
+
+		if len(val) < 1 {
+			if len(def.DefaultValue) < 1 && def.Required {
+				return fmt.Errorf("field '%s' is required but has no defined or default value", strings.Replace(path, "_", ".", -1))
+			}
+			val = def.DefaultValue
+		}
 	}
 
 	switch def.Type {
