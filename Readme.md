@@ -35,6 +35,12 @@ function, which is a method of the `config` struct.
 
 You can also set a struct tag `required` which will result in an error if no value can be found for that variable and no default value is defined.
 
+Commandline arguments, environment variables and variables in 
+yaml or json files can be either a direct case match, or all in capitals eg.
+if your struct contains the variable `Name`, the environment variables `Name` and
+`NAME` will be a match. If you require an exact match, use the struct
+tag `literal` (set to true) to enforce an exact match.
+
 ## Code Examples
 
 ### Populating A Struct
@@ -108,6 +114,15 @@ Running your code again, you will see this result:
 ```
 
 This shows we have populated even nested fields from our Yaml file, and overriden defaults defined in our struct.
+
+#### Json Struct Tags
+
+The following tags are available for structs:
+
+* `default` - specify a default value
+* `required` - if no value is found and no `default` is set, `Populate()` returns an error
+* `literal` - commandline args, env variables and file variables will match either with 
+the literal name or the name in CAPITALS. To require an exact case match, set `literal` to true
 
 #### Environment variables for nested fields
 
