@@ -1,11 +1,16 @@
+// Copyright 2022 John Driscoll (https://github.com/jddcode)
+// This code is licensed under the MIT license
+// Please see LICENSE.md
+
 package config
 
 import (
+	"testing"
+
 	"github.com/driscollos/config/internal/mocks"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"testing"
 )
 
 func TestSuite(t *testing.T) {
