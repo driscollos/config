@@ -56,6 +56,8 @@ var _ = Describe("Duration string parser", func() {
 					"1 sec, 1 hour": 3601000000000,
 					"1 hour 1 day":  90000000000000,
 					"2 hours 1 day": 93600000000000,
+					"1 week": 604800000000000,
+					"2 weeks": 1209600000000000,
 				} {
 					Expect(myParser.Parse(key)).To(Equal(time.Duration(val)))
 				}

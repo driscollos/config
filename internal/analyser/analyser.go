@@ -34,6 +34,10 @@ func (a analyser) Analyse(thing interface{}) []structs.FieldDefinition {
 			Type:         v.Field(i).Type().String(),
 		}
 
+		if len(t.Field(i).Tag.Get("src")) > 0 {
+			def.Name = t.Field(i).Tag.Get("src")
+		}
+
 		switch strings.ToLower(t.Field(i).Tag.Get("required")) {
 		case "true", "yes", "1", "on":
 			def.Required = true
