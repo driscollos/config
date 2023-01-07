@@ -71,7 +71,9 @@ func (p parser) analyseSection(number int, descriptor string) time.Duration {
 		return 0
 	}
 
-	switch strings.TrimSpace(strings.ReplaceAll(descriptor, ",", "")) {
+	switch strings.ToLower(strings.TrimSpace(strings.ReplaceAll(descriptor, ",", ""))) {
+	case "w", "week", "weeks":
+		return (((time.Hour) * 24) * 7) * time.Duration(number)
 	case "d", "day", "days":
 		return (time.Hour * 24) * time.Duration(number)
 	case "h", "hr", "hour", "hrs", "hours":
