@@ -97,7 +97,7 @@ func (p populator) populateField(path string, def structs.FieldDefinition, conta
 		if len(val) > 0 {
 			allVals := make([]string, 0)
 			for _, subVal := range strings.Split(val, ",") {
-				allVals = append(allVals, subVal)
+				allVals = append(allVals, strings.Replace(subVal, `"`, "", -1))
 			}
 			container.Set(reflect.ValueOf(allVals))
 		}
