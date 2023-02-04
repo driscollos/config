@@ -70,7 +70,6 @@ func (s *sourcer) loadFromSource(filename string, source []byte) error {
 		}
 	case "json":
 		if err := json.Unmarshal(source, &data); err != nil {
-			fmt.Println("json error:", err.Error())
 			return err
 		}
 	default:
@@ -115,7 +114,9 @@ func (s *sourcer) Get(path string) string {
 	if retVal == nil {
 		return ""
 	}
-	if reflect.TypeOf(retVal).Kind() == reflect.Slice {
+
+	switch reflect.TypeOf(retVal).Kind() {
+	case reflect.Slice, reflect.Map:
 		bytes, _ := json.Marshal(retVal)
 		return string(bytes)[1 : len(string(bytes))-1]
 	}

@@ -12,5 +12,10 @@ type FieldDefinition struct {
 	Type         string
 	Tags         reflect.StructTag
 	Nested       []FieldDefinition
-	Required     bool
+	Map          struct {
+		KeyType string
+		ValType string
+		Nested  []FieldDefinition
+	}
+	Required bool
 }
