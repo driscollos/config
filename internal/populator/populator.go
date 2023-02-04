@@ -5,6 +5,7 @@
 package populator
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -150,6 +151,13 @@ func (p populator) populateField(path string, def structs.FieldDefinition, conta
 			}
 		}
 		container.Set(reflect.ValueOf(allVals))
+	case "map":
+		obj := reflect.New(container.Type()).Interface()
+		err := json.Unmarshal([]byte(fmt.Sprintf("{%s}", val)), &obj)
+		if err == nil {
+			myVal := reflect.ValueOf(obj)
+			container.Set(myVal.Elem())
+		}
 	}
 
 	return nil
