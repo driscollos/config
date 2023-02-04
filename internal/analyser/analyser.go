@@ -57,7 +57,9 @@ func (a analyser) Analyse(thing interface{}) []structs.FieldDefinition {
 			def.Type = "map"
 			def.Map.KeyType = v.Field(i).Type().Key().Kind().String()
 			def.Map.ValType = v.Field(i).Type().Elem().Kind().String()
-			def.Map.Nested = a.Analyse(v.Field(i).Type().Elem())
+			if v.Field(i).Type().Elem().Kind().String() == "struct" {
+				def.Map.Nested = a.Analyse(v.Field(i).Type().Elem())
+			}
 		}
 		definitions = append(definitions, def)
 	}
