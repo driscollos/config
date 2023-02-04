@@ -5,9 +5,10 @@
 package analyser
 
 import (
-	"github.com/driscollos/config/internal/structs"
 	"reflect"
 	"strings"
+
+	"github.com/driscollos/config/internal/structs"
 )
 
 //go:generate mockgen -destination=../mocks/mock-data-analyser.go -package=mocks . Analyser
@@ -62,12 +63,3 @@ func (a analyser) Analyse(thing interface{}) []structs.FieldDefinition {
 	}
 	return definitions
 }
-
-/*
-func (a analyser) analyseMapStruct(content reflect.Type) structs.FieldDefinition {
-	for i := 0; i < content.NumField(); i++ {
-
-	}
-}
-
-*/
