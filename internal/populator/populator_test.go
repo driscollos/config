@@ -31,13 +31,11 @@ var _ = Describe("Cron Blacklist Update Handler", func() {
 
 	BeforeEach(func() {
 		mockController = gomock.NewController(GinkgoT())
-		mockAnalyser = mocks.NewMockAnalyser(mockController)
 		mockSourcer = mocks.NewMockSourcer(mockController)
 		mockDurationParser = mocks.NewMockDurationParser(mockController)
 		myPopulator = populator{
-			analyser:       mockAnalyser,
 			floatParser:    floatParser.New(),
-			sourcer:        mockSourcer,
+			src:            mockSourcer,
 			durationParser: mockDurationParser,
 		}
 	})

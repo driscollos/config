@@ -8,12 +8,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"reflect"
+	"strconv"
+	"strings"
+
 	fileReader "github.com/driscollos/config/internal/sourcer/file-reader"
 	terminalReader "github.com/driscollos/config/internal/sourcer/terminal-reader"
 	"gopkg.in/yaml.v3"
-	"os"
-	"reflect"
-	"strings"
 )
 
 //go:generate mockgen -destination=../mocks/mock-data-sourcer.go -package=mocks . Sourcer
@@ -138,11 +140,33 @@ func (s *sourcer) get(source map[string]interface{}, path string) interface{} {
 
 	bits = bits[1:]
 	for pos, part := range bits {
+		if extract == nil {
+			continue
+		}
+
 		if pos == len(bits)-1 {
+			if reflect.TypeOf(extract).Kind() == reflect.Slice {
+				partAsInt, err := strconv.Atoi(part)
+				if err != nil {
+					return nil
+				}
+				if len(part) < (partAsInt + 1) {
+					return nil
+				}
+				return extract.([]interface{})[partAsInt]
+			}
 			if extract == nil || reflect.TypeOf(extract).Kind() != reflect.Map {
 				return nil
 			}
 			return extract.(map[string]interface{})[part]
+		}
+
+		partAsInt, err := strconv.Atoi(part)
+		if err == nil && reflect.TypeOf(extract).Kind() == reflect.Slice {
+			if len(extract.([]interface{})) > partAsInt {
+				extract = extract.([]interface{})[partAsInt]
+				continue
+			}
 		}
 
 		if reflect.TypeOf(extract).Kind() != reflect.Map {

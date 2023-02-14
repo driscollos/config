@@ -4,18 +4,26 @@
 
 This repo is licensed under the MIT license. Please read the full license [here](https://github.com/driscollos/config/blob/main/LICENSE.md). 
 
-# Parameters
+# Config
 
-This library allows you to read parameters from a variety of sources; environment variables, commandline arguments and json or yaml configuration
-files. You can either access variables by function call, or populate a configuration struct.
+This library allows you to read configuration data from a variety of
+sources. Information is automatically merged according to the priority of the
+source. Sources are (in priority order):
 
-Configuration structs can be nested to as many levels as you like.
-
-Values are sourced from various places. These are the sources, in order of precedence with the highest priority first.
-
-* Commandline arguments eg `--name John`
+* Commandline arguments
 * Environment variables
-* Yaml files
+* Yaml or Json configuration files
+
+You can access configuration data by populating a struct or by direct access
+via function calls.
+
+## Configuration Files
+
+You can specify a file to read from, but the following files will be examined
+by default. If you have more than one of the files below, they will be merged
+and can override each other according to priority. The default files are
+(in priority order):
+
 * * `env.local.json`
 * * `env.local.yml`
 * * `config.local.json`
@@ -28,7 +36,12 @@ Values are sourced from various places. These are the sources, in order of prece
 * * `config/config.yml`
 * * `build/config.json`
 * * `build/config.yml`
-* default values in struct tags eg `default:"MyDefaultValue"`
+
+## Populating A Struct
+
+You can read configuration data by populating a struct. There are various
+struct tags available. Here is an example:
+
 
 You can specify a particular yaml file to use as the exclusive source of values using the `Source(filename)`
 function, which is a method of the `config` struct.
