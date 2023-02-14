@@ -9,7 +9,6 @@ import (
 
 	"github.com/driscollos/config/internal/mocks"
 	floatParser "github.com/driscollos/config/internal/populator/float-parser"
-	"github.com/driscollos/config/internal/structs"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -20,10 +19,9 @@ func TestSuite(t *testing.T) {
 	RunSpecs(t, "Unit Tests")
 }
 
-var _ = Describe("Cron Blacklist Update Handler", func() {
+var _ = Describe("Unit tests", func() {
 	var (
 		mockController     *gomock.Controller
-		mockAnalyser       *mocks.MockAnalyser
 		mockSourcer        *mocks.MockSourcer
 		mockDurationParser *mocks.MockDurationParser
 		myPopulator        populator
@@ -31,13 +29,11 @@ var _ = Describe("Cron Blacklist Update Handler", func() {
 
 	BeforeEach(func() {
 		mockController = gomock.NewController(GinkgoT())
-		mockAnalyser = mocks.NewMockAnalyser(mockController)
 		mockSourcer = mocks.NewMockSourcer(mockController)
 		mockDurationParser = mocks.NewMockDurationParser(mockController)
 		myPopulator = populator{
-			analyser:       mockAnalyser,
 			floatParser:    floatParser.New(),
-			sourcer:        mockSourcer,
+			src:            mockSourcer,
 			durationParser: mockDurationParser,
 		}
 	})
@@ -53,13 +49,6 @@ var _ = Describe("Cron Blacklist Update Handler", func() {
 					Name string
 				}{}
 
-				fieldDefs := []structs.FieldDefinition{
-					{
-						Name: "Name",
-						Type: "string",
-					},
-				}
-				mockAnalyser.EXPECT().Analyse(gomock.Any()).Return(fieldDefs)
 				mockSourcer.EXPECT().Get("Name").Return("Bob")
 
 				myPopulator.Populate(&myStruct)
@@ -72,13 +61,6 @@ var _ = Describe("Cron Blacklist Update Handler", func() {
 					Age int
 				}{}
 
-				fieldDefs := []structs.FieldDefinition{
-					{
-						Name: "Age",
-						Type: "int",
-					},
-				}
-				mockAnalyser.EXPECT().Analyse(gomock.Any()).Return(fieldDefs)
 				mockSourcer.EXPECT().Get("Age").Return("40")
 
 				myPopulator.Populate(&myStruct)
@@ -92,28 +74,8 @@ var _ = Describe("Cron Blacklist Update Handler", func() {
 					BoolTwo   bool
 					BoolThree bool
 					BoolFour  bool
-					BoolFive  bool
 				}{}
 
-				fieldDefs := []structs.FieldDefinition{
-					{
-						Name: "BoolOne",
-						Type: "bool",
-					},
-					{
-						Name: "BoolTwo",
-						Type: "bool",
-					},
-					{
-						Name: "BoolThree",
-						Type: "bool",
-					},
-					{
-						Name: "BoolFour",
-						Type: "bool",
-					},
-				}
-				mockAnalyser.EXPECT().Analyse(gomock.Any()).Return(fieldDefs)
 				mockSourcer.EXPECT().Get(gomock.Any()).Return("true")
 				mockSourcer.EXPECT().Get(gomock.Any()).Return("on")
 				mockSourcer.EXPECT().Get(gomock.Any()).Return("yes")
@@ -133,13 +95,6 @@ var _ = Describe("Cron Blacklist Update Handler", func() {
 						Age float32
 					}{}
 
-					fieldDefs := []structs.FieldDefinition{
-						{
-							Name: "Age",
-							Type: "float32",
-						},
-					}
-					mockAnalyser.EXPECT().Analyse(gomock.Any()).Return(fieldDefs)
 					mockSourcer.EXPECT().Get("Age").Return("--invalid--")
 
 					myPopulator.Populate(&myStruct)
@@ -149,20 +104,12 @@ var _ = Describe("Cron Blacklist Update Handler", func() {
 			When("the float is valid", func() {
 				It("should populate the struct with the float value", func() {
 					myStruct := struct {
-						Age float32
+						MyAge float32
 					}{}
 
-					fieldDefs := []structs.FieldDefinition{
-						{
-							Name: "Age",
-							Type: "float32",
-						},
-					}
-					mockAnalyser.EXPECT().Analyse(gomock.Any()).Return(fieldDefs)
-					mockSourcer.EXPECT().Get("Age").Return("60.2")
-
+					mockSourcer.EXPECT().Get("MyAge").Return("60.2")
 					myPopulator.Populate(&myStruct)
-					Expect(myStruct.Age).To(Equal(float32(60.2)))
+					Expect(myStruct.MyAge).To(Equal(float32(60.2)))
 				})
 			})
 		})
@@ -173,13 +120,6 @@ var _ = Describe("Cron Blacklist Update Handler", func() {
 						Age float64
 					}{}
 
-					fieldDefs := []structs.FieldDefinition{
-						{
-							Name: "Age",
-							Type: "float64",
-						},
-					}
-					mockAnalyser.EXPECT().Analyse(gomock.Any()).Return(fieldDefs)
 					mockSourcer.EXPECT().Get("Age").Return("--invalid--")
 
 					myPopulator.Populate(&myStruct)
@@ -192,13 +132,6 @@ var _ = Describe("Cron Blacklist Update Handler", func() {
 						Age float64
 					}{}
 
-					fieldDefs := []structs.FieldDefinition{
-						{
-							Name: "Age",
-							Type: "float64",
-						},
-					}
-					mockAnalyser.EXPECT().Analyse(gomock.Any()).Return(fieldDefs)
 					mockSourcer.EXPECT().Get("Age").Return("40.5")
 
 					myPopulator.Populate(&myStruct)
@@ -212,13 +145,6 @@ var _ = Describe("Cron Blacklist Update Handler", func() {
 					Hobbies []string
 				}{}
 
-				fieldDefs := []structs.FieldDefinition{
-					{
-						Name: "Hobbies",
-						Type: "[]string",
-					},
-				}
-				mockAnalyser.EXPECT().Analyse(gomock.Any()).Return(fieldDefs)
 				mockSourcer.EXPECT().Get("Hobbies").Return("Travel,Adventure")
 
 				myPopulator.Populate(&myStruct)

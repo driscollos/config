@@ -4,18 +4,26 @@
 
 This repo is licensed under the MIT license. Please read the full license [here](https://github.com/driscollos/config/blob/main/LICENSE.md). 
 
-# Parameters
+# Config
 
-This library allows you to read parameters from a variety of sources; environment variables, commandline arguments and json or yaml configuration
-files. You can either access variables by function call, or populate a configuration struct.
+This library allows you to read configuration data from a variety of
+sources. Information is automatically merged according to the priority of the
+source. Sources are (in priority order):
 
-Configuration structs can be nested to as many levels as you like.
-
-Values are sourced from various places. These are the sources, in order of precedence with the highest priority first.
-
-* Commandline arguments eg `--name John`
+* Commandline arguments
 * Environment variables
-* Yaml files
+* Yaml or Json configuration files
+
+You can access configuration data by populating a struct or by direct access
+via function calls.
+
+## Configuration Files
+
+You can specify a file to read from, but the following files will be examined
+by default. If you have more than one of the files below, they will be merged
+and can override each other according to priority. The default files are
+(in priority order):
+
 * * `env.local.json`
 * * `env.local.yml`
 * * `config.local.json`
@@ -28,12 +36,15 @@ Values are sourced from various places. These are the sources, in order of prece
 * * `config/config.yml`
 * * `build/config.json`
 * * `build/config.yml`
-* default values in struct tags eg `default:"MyDefaultValue"`
 
-You can specify a particular yaml file to use as the exclusive source of values using the `Source(filename)`
-function, which is a method of the `config` struct.
+## Populating A Struct
 
-You can also set a struct tag `required` which will result in an error if no value can be found for that variable and no default value is defined.
+You can read configuration data by populating a struct. You can make use of the following tags in your structs:
+
+* default - set a default value if no source data is found
+* required (`true`) - returns an error if no data is found for this variable
+* src - override the name of the data source - if you add `src="myVar"` to any variable, it will populate from the 
+environment variable or yaml or json variable `myVar`
 
 Commandline arguments, environment variables and variables in 
 yaml or json files can be either a direct case match, or all in capitals eg.
@@ -46,94 +57,108 @@ tag `literal` (set to true) to enforce an exact match.
 ### Populating A Struct
 
 ```go
+package main
+
 import (
-	"encoding/json"
-	"fmt"
-	"github.com/driscollos/config"
-	"time"
+    "encoding/json"
+    "fmt"
+    "github.com/driscollos/config"
+    "time"
 )
 
-func main() {
-    conf := config.New()
-    mine := myConf{}
-    if err := conf.Populate(&mine); err != nil {
-        fmt.Println("could not populate configuration:", err.Error())
-        os.Exit(0)
+type Teacher struct {
+    Name    string `required:"true"`
+    Age     int
+    Classes map[string]struct {
+        Pupils []struct {
+            Name       string
+            Attendance float64
+            Enrolled   bool `default:"true"`
+        }
+        ClassLength time.Duration
+        Location    string `default:"Spare Classroom"`
     }
+    LuckyNumbers []float64
+    LotteryPicks []float64 `default:"10,31,55"`
+}
 
-    bytes, _ := json.Marshal(mine)
+func main() {
+    t := Teacher{}
+    c := config.New()
+    c.Populate(&t)
+
+    bytes, _ := json.Marshal(t)
     fmt.Println(string(bytes))
 }
+```
 
-type myConf struct {
-    Name        string
-    Age         int       `default:"40"`
-    TimeOfBirth time.Time `default:"1981-12-01 17:21:33" layout:"2006-01-02 15:04:05"`
-    Hobbies     struct {
-        First  string `default:"sports"`
-        Second string `default:"coding"`
-        Best   struct {
-            ReasonOne string
-            ReasonTwo string `default:"just because"`
-        }
-    }
-    FaveColour Colour
-}
+And the associated yaml file (in this case `env.yml`)
 
-type Colour struct {
-    Name string
-    ID   string `default:"blue"`
-}
+```yaml
+Name: John
+Age: 41
+Classes:
+  Computer Science:
+    ClassLength: 2 hours
+    Pupils:
+      - Name: Bob
+        Attendance: 78.4
+        Enrolled: yes
+      - Name: Theresa
+        Attendance: 81.6
+        Enrolled: y
+      - Name: Jim
+        Attendance: 80.5
+        Enrolled: true
+      - Name: Tom
+        Attendance: 30.2
+        Enrolled: n
+      - Name: Henry
+        Attendance: 45.82
+        Enrolled: false
+      - Name: Laura
+        Attendance: 88.1
+  History:
+    ClassLength: 3 hours
+    Pupils:
+      - Name: Pete
+        Attendance: 81.4
+        Enrolled: 1
+    Location: Room C4
+LuckyNumbers:
+  - 10
+  - 21
+  - 56
 ```
 
 The output of this code will be: 
 
-```go
-{"Name":"","Age":40,"TimeOfBirth":"1981-12-01T17:21:33Z","Hobbies":{"First":"sports","Second":"coding","Best":{"ReasonOne":"","ReasonTwo":"just because"}},"FaveColour":{"Name":"","ID":"blue"}}
+```json
+{"Name":"John","Age":41,"Classes":{"Computer Science":{"Pupils":[{"Name":"Bob","Attendance":78.4,"Enrolled":true},{"Name":"Theresa","Attendance":81.6,"Enrolled":true},{"Name":"Jim","Attendance":80.5,"Enrolled":true},{"Name":"Tom","Attendance":30.2,"Enrolled":false},{"Name":"Henry","Attendance":45.82,"Enrolled":false},{"Name":"Laura","Attendance":88.1,"Enrolled":true}],"ClassLength":7200000000000,"Location":"Spare Classroom"},"History":{"Pupils":[{"Name":"Pete","Attendance":81.4,"Enrolled":true}],"ClassLength":10800000000000,"Location":"Room C4"}},"LuckyNumbers":[10,21,56],"LotteryPicks":[10,31,55]}
 ```
 
-As you can see, the `default` tags in our struct have been used to populate variables as no environment variables are set. \
-Let's try creating an environment yaml file to set some values. Create the file `env.yml` and populate it like this:
+You can override any of the data in the yaml file by setting an environment variable (as these have higher priorty than yaml files). 
+For example running this:
 
-```yaml
-Name: John
-Age: 30
-Hobbies:
-  First: Travel
-  Best:
-    ReasonOne: Because it is the best
-    ReasonTwo: Do I need a second reason?
-FaveColour:
-  Name: Red
+```shell
+export Classes_Computer_Science_Pupils_0_Name="Steve"
 ```
 
-Running your code again, you will see this result:
+will change the output of the code to this:
 
-```go
-{"Name":"John","Age":30,"TimeOfBirth":"1981-12-01T17:21:33Z","Hobbies":{"First":"Travel","Second":"coding","Best":{"ReasonOne":"Because it is the best","ReasonTwo":"Do I need a second reason?"}},"FaveColour":{"Name":"Red","ID":"blue"}}
+```json
+{"Name":"John","Age":41,"Classes":{"Computer Science":{"Pupils":[{"Name":"Steve","Attendance":78.4,"Enrolled":true},{"Name":"Theresa","Attendance":81.6,"Enrolled":true},{"Name":"Jim","Attendance":80.5,"Enrolled":true},{"Name":"Tom","Attendance":30.2,"Enrolled":false},{"Name":"Henry","Attendance":45.82,"Enrolled":false},{"Name":"Laura","Attendance":88.1,"Enrolled":true}],"ClassLength":7200000000000,"Location":"Spare Classroom"},"History":{"Pupils":[{"Name":"Pete","Attendance":81.4,"Enrolled":true}],"ClassLength":10800000000000,"Location":"Room C4"}},"LuckyNumbers":[10,21,56],"LotteryPicks":[10,31,55]}
 ```
 
-This shows we have populated even nested fields from our Yaml file, and overriden defaults defined in our struct.
+Note that:
 
-#### Json Struct Tags
-
-The following tags are available for structs:
-
-* `src` - specify an alternate variable name to populate the field
-* `default` - specify a default value
-* `required` - if no value is found and no `default` is set, `Populate()` returns an error
-* `literal` - commandline args, env variables and file variables will match either with 
-the literal name or the name in CAPITALS. To require an exact case match, set `literal` to true
-
-#### Environment variables for nested fields
-
-To set an environment variable for a nested field, use an underscore for each level eg. `export Hobbies_First="Ice Skating"` - this will override the 
-default value of `Hobbies.First` defined in your struct, and also any variable set in a local environment file eg. `env.yml`.
+* You can populate elements of a slice by adding the integer index to your env variable
+* Spaces in the name of variables eg. the class `Computer Science` should be converted to underscores eg `Computer_Science`
 
 ## Accessing Variables Directly
 
 You can access parameters with the following type functions. Give the name of the variable you want to access; separate levels of nested fields
-with an underscore eg. `Hobbies_First`.
+with an underscore eg. `Classes_Computer_Science_Pupils_0_Name`.
 
 These functions will take environment variables and provide them in various formats.
 
@@ -158,42 +183,10 @@ Parsing of `time.Duration` default values in struct tags supports a variety of c
 
 ## Specifying a file to source data from
 
-You are able to specify a source yaml file that config should use as the exclusive source of information.
-Take a look at this example:
+You can specify the exact file which should be used to populate your config. If you specify a source file, all other sources are
+ignored including commandline arguments and environment variables. Here is an example:
 
 ```go
-package main
-
-import (
-    "fmt"
-    "github.com/driscollos/config"
-    "os"
-)
-
-func main() {
-    appConf := myApplicationConfig{}
-    c := config.New()
-    c.Source("example.yaml")
-    err := c.Populate(&appConf)
-    if err != nil {
-        fmt.Println("error:", err.Error())
-        os.Exit(0)
-    }
-    fmt.Println(appConf.DownstreamService.Enabled, appConf.DownstreamService.Address)
-}
-
-type myApplicationConfig struct {
-    DownstreamService struct {
-        Enabled bool   `default:"true"`
-        Address string `required:"true"`
-    }
-}
+c := config.New()
+c.Source("./env.yml")
 ```
-
-And the file `example.yaml`
-```yaml
-DownstreamService:
-  Address: https://example.org
-```
-
-The output from this will be `true https://example.org`

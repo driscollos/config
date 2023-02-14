@@ -6,207 +6,191 @@ package populator
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/driscollos/config/internal/analyser"
 	durationParser "github.com/driscollos/config/internal/populator/duration-parser"
 	floatParser "github.com/driscollos/config/internal/populator/float-parser"
 	"github.com/driscollos/config/internal/sourcer"
-	"github.com/driscollos/config/internal/structs"
 )
 
 type Populator interface {
-	Populate(container interface{}) error
+	Populate(dest interface{}) error
 }
 
 type populator struct {
-	analyser       analyser.Analyser
+	src            sourcer.Sourcer
 	floatParser    floatParser.FloatParser
-	sourcer        sourcer.Sourcer
 	durationParser durationParser.DurationParser
 }
 
-func (p populator) Populate(container interface{}) error {
-	def := p.analyser.Analyse(container)
-	v := reflect.ValueOf(container)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
+func (p populator) Populate(dest interface{}) error {
+	if reflect.TypeOf(dest).Kind() != reflect.Ptr {
+		return errors.New(ErrorNotPointer)
 	}
-	return p.populate("", def, v)
+
+	t := reflect.TypeOf(dest).Elem()
+	v := reflect.ValueOf(dest).Elem()
+	return p.populate(t, v, "")
 }
 
-func (p populator) populate(path string, def []structs.FieldDefinition, container reflect.Value) error {
-	for i, field := range def {
-		if field.Type == "struct" {
-			if err := p.populate(strings.TrimLeft(fmt.Sprintf("%s_%s", path, field.Name), "_"), field.Nested, container.Field(i)); err != nil {
-				return err
-			}
-			continue
+func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) error {
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+		ft := t.Field(i)
+
+		name := strings.Trim(fmt.Sprintf("%s_%s", prefix, t.Field(i).Name), "_")
+		if len(ft.Tag.Get("src")) > 0 {
+			name = ft.Tag.Get("src")
 		}
-		if err := p.populateField(strings.TrimLeft(fmt.Sprintf("%s_%s", path, field.Name), "_"), field, container.Field(i)); err != nil {
-			return err
+
+		value := p.src.Get(name)
+		if len(value) < 1 {
+			value = ft.Tag.Get("default")
+		}
+
+		if len(value) < 1 {
+			switch strings.ToLower(ft.Tag.Get("required")) {
+			case "yes", "1", "true", "on":
+				return errors.New(fmt.Sprintf("missing required value : %s", name))
+			}
+		}
+
+		switch ft.Type.Kind() {
+		case reflect.Map:
+			f.Set(reflect.MakeMap(ft.Type))
+			for _, key := range p.findKeys(p.src.Get(name)) {
+				f.SetMapIndex(reflect.ValueOf(key), reflect.New(reflect.New(f.Type().Elem()).Elem().Type()).Elem())
+				if reflect.New(f.Type().Elem()).Elem().Kind() == reflect.Struct {
+					inner := reflect.New(reflect.New(f.Type().Elem()).Elem().Type()).Elem()
+					p.populate(reflect.New(f.Type().Elem()).Elem().Type(), inner, fmt.Sprintf("%s_%s", name, key))
+					f.SetMapIndex(reflect.ValueOf(key), inner)
+				}
+			}
+		case reflect.Slice:
+			bits := strings.Split(value, ",")
+			for i, bit := range bits {
+				bits[i] = strings.Replace(bit, `"`, "", -1)
+			}
+
+			switch f.Type().Elem().Kind() {
+			case reflect.String:
+				f.Set(reflect.ValueOf(bits))
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				if ft.Type.Name() == "Duration" {
+					durationBits := make([]time.Duration, 0)
+					for _, bit := range bits {
+						duration, err := p.durationParser.Parse(bit)
+						if err == nil {
+							durationBits = append(durationBits, duration)
+						}
+					}
+					f.Set(reflect.ValueOf(durationBits))
+				} else {
+					intBits := make([]int, 0)
+					for _, bit := range bits {
+						converted, err := strconv.Atoi(bit)
+						if err == nil {
+							intBits = append(intBits, converted)
+						}
+					}
+					f.Set(reflect.ValueOf(intBits))
+				}
+			case reflect.Float32, reflect.Float64:
+				floatBits := make([]float64, 0)
+				for _, bit := range bits {
+					fVal, err := p.floatParser.Float64(bit)
+					if err == nil {
+						floatBits = append(floatBits, fVal)
+					}
+				}
+				f.Set(reflect.ValueOf(floatBits))
+			case reflect.Bool:
+				boolBits := make([]bool, 0)
+				for _, bit := range bits {
+					if len(bit) < 1 {
+						continue
+					}
+					switch strings.ToLower(bit) {
+					case "1", "yes", "true", "on", "y", "t", "ok":
+						boolBits = append(boolBits, true)
+					default:
+						boolBits = append(boolBits, false)
+					}
+				}
+				f.Set(reflect.ValueOf(boolBits))
+			case reflect.Struct:
+				for i := 0; i < p.getSliceCount(value); i++ {
+					inner := reflect.New(reflect.New(f.Type().Elem()).Elem().Type()).Elem()
+					if err := p.populate(inner.Type(), inner, fmt.Sprintf("%s_%d", name, i)); err != nil {
+						return err
+					}
+					f.Set(reflect.Append(f, inner))
+				}
+			}
+
+		case reflect.Chan:
+			f.Set(reflect.MakeChan(ft.Type, 0))
+		case reflect.Struct:
+			p.populate(ft.Type, f, name)
+		case reflect.Ptr:
+			fv := reflect.New(ft.Type.Elem())
+			p.populate(ft.Type.Elem(), fv.Elem(), prefix)
+			f.Set(fv)
+		case reflect.String:
+			f.SetString(value)
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			if ft.Type.Name() == "Duration" {
+				duration, err := p.durationParser.Parse(value)
+				if err == nil {
+					f.SetInt(int64(duration))
+				}
+			} else {
+				converted, err := strconv.Atoi(value)
+				if err == nil {
+					f.SetInt(int64(converted))
+				}
+			}
+		case reflect.Float32, reflect.Float64:
+			fVal, _ := p.floatParser.Float64(value)
+			f.SetFloat(fVal)
+		case reflect.Bool:
+			switch strings.ToLower(value) {
+			case "1", "yes", "true", "on", "y", "t", "ok":
+				f.SetBool(true)
+			default:
+				f.SetBool(false)
+			}
+		default:
 		}
 	}
 	return nil
 }
 
-func (p populator) populateField(path string, def structs.FieldDefinition, container reflect.Value) error {
-	val := p.findVal(path)
-	if len(val) < 1 {
-		switch def.Tags.Get("literal") {
-		case "yes", "1", "true", "on":
-		default:
-			val = p.findVal(strings.ToUpper(path))
-		}
-
-		if len(val) < 1 {
-			if len(def.DefaultValue) < 1 && def.Required {
-				return fmt.Errorf("field '%s' is required but has no defined or default value", strings.Replace(path, "_", ".", -1))
-			}
-			val = def.DefaultValue
-		}
+func (p populator) findKeys(src string) []string {
+	if len(src) < 1 {
+		return nil
 	}
+	src = fmt.Sprintf("{%s}", src)
 
-	switch def.Type {
-	case "string":
-		container.SetString(val)
-	case "int", "int8", "int16", "int32", "int64":
-		asInt, _ := strconv.Atoi(val)
-		container.SetInt(int64(asInt))
-	case "time.Duration":
-		duration, err := p.durationParser.Parse(val)
-		if err == nil {
-			container.SetInt(int64(duration))
-		}
-	case "time.Time":
-		container.Set(reflect.ValueOf(p.time(def.Tags.Get("layout"), val)))
-	case "float32", "float64":
-		fVal, _ := p.floatParser.Float64(val)
-		container.SetFloat(fVal)
-	case "bool":
-		switch val {
-		case "true", "yes", "1", "on":
-			container.SetBool(true)
-		default:
-			container.SetBool(false)
-		}
-	case "[]string":
-		if len(val) > 0 {
-			allVals := make([]string, 0)
-			for _, subVal := range strings.Split(val, ",") {
-				allVals = append(allVals, strings.Replace(subVal, `"`, "", -1))
-			}
-			container.Set(reflect.ValueOf(allVals))
-		}
-	case "[]int", "[]int8", "[]int16", "[]int32", "[]int64":
-		allVals := make([]int, 0)
-		for _, subVal := range strings.Split(val, ",") {
-			intVal, err := strconv.Atoi(subVal)
-			if err == nil {
-				allVals = append(allVals, intVal)
-			}
-		}
-		container.Set(reflect.ValueOf(allVals))
-	case "map[string]string":
-		allVals := make(map[string]string)
-		for _, subVal := range strings.Split(val, ",") {
-			parts := strings.Split(strings.TrimSpace(subVal), ":")
-			if len(parts) != 2 || len(parts[0]) < 1 || len(parts[1]) < 1 {
-				continue
-			}
-			allVals[parts[0]] = parts[1]
-		}
-		container.Set(reflect.ValueOf(allVals))
-	case "map[string]int":
-		allVals := make(map[string]int)
-		for _, subVal := range strings.Split(val, ",") {
-			parts := strings.Split(strings.TrimSpace(subVal), ":")
-			if len(parts) != 2 || len(parts[0]) < 1 || len(parts[1]) < 1 {
-				continue
-			}
-			intVal, err := strconv.Atoi(parts[1])
-			if err == nil {
-				allVals[parts[0]] = intVal
-			} else {
-				allVals[parts[0]] = 0
-			}
-		}
-		container.Set(reflect.ValueOf(allVals))
-	case "map[string]int64":
-		allVals := make(map[string]int64)
-		for _, subVal := range strings.Split(val, ",") {
-			parts := strings.Split(strings.TrimSpace(subVal), ":")
-			if len(parts) != 2 || len(parts[0]) < 1 || len(parts[1]) < 1 {
-				continue
-			}
-			intVal, err := strconv.Atoi(parts[1])
-			if err == nil {
-				allVals[parts[0]] = int64(intVal)
-			} else {
-				allVals[parts[0]] = 0
-			}
-		}
-		container.Set(reflect.ValueOf(allVals))
-	case "map":
-		obj := reflect.New(container.Type()).Interface()
-		err := json.Unmarshal([]byte(fmt.Sprintf("{%s}", val)), &obj)
-		if err == nil {
-			myVal := reflect.ValueOf(obj)
-			container.Set(myVal.Elem())
-		}
+	container := make(map[string]interface{})
+	json.Unmarshal([]byte(src), &container)
+	keys := make([]string, 0)
+	for key, _ := range container {
+		keys = append(keys, key)
 	}
-
-	return nil
+	return keys
 }
 
-func (p populator) duration(val string) time.Duration {
-	fragment := ""
-	var duration time.Duration
-	for i := 0; i < len(val); i++ {
-		bit := val[i : i+1]
-		_, err := strconv.Atoi(bit)
-		if err != nil {
-			if len(fragment) < 1 {
-				continue
-			}
-			fragmentVal, err := strconv.Atoi(fragment)
-			if err != nil {
-				continue
-			}
-			switch bit {
-			case "M":
-				duration += time.Hour * time.Duration(730*fragmentVal)
-			case "w":
-				duration += time.Hour * time.Duration(168*fragmentVal)
-			case "d":
-				duration += time.Hour * time.Duration(24*fragmentVal)
-			case "h":
-				duration += time.Hour * time.Duration(fragmentVal)
-			case "m":
-				duration += time.Second * time.Duration(60*fragmentVal)
-			case "s":
-				duration += time.Second * time.Duration(fragmentVal)
-			}
-			fragment = ""
-			continue
-		}
-		fragment += bit
-	}
-	return duration
-}
-
-func (p populator) time(layout, val string) time.Time {
-	myTime, err := time.Parse(layout, val)
+func (p populator) getSliceCount(raw string) int {
+	container := make([]interface{}, 0)
+	err := json.Unmarshal([]byte(fmt.Sprintf("[%s]", raw)), &container)
 	if err != nil {
-		return time.Time{}
+		return 0
 	}
-	return myTime
-}
-
-func (p populator) findVal(path string) string {
-	return p.sourcer.Get(path)
+	return len(container)
 }

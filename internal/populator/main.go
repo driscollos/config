@@ -5,17 +5,15 @@
 package populator
 
 import (
-	"github.com/driscollos/config/internal/analyser"
 	durationParser "github.com/driscollos/config/internal/populator/duration-parser"
 	floatParser "github.com/driscollos/config/internal/populator/float-parser"
 	"github.com/driscollos/config/internal/sourcer"
 )
 
-func New(source sourcer.Sourcer) Populator {
-	return &populator{
-		analyser:       analyser.New(),
+func New(src sourcer.Sourcer) Populator {
+	return populator{
+		src:            src,
 		floatParser:    floatParser.New(),
-		sourcer:        source,
 		durationParser: durationParser.New(),
 	}
 }
