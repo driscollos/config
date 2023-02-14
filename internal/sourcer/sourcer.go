@@ -101,8 +101,8 @@ func (s *sourcer) Get(path string) string {
 	}
 
 	if s.sources.useEnvironment {
-		if len(os.Getenv(path)) > 0 {
-			return os.Getenv(path)
+		if len(os.Getenv(strings.Replace(path, " ", "_", -1))) > 0 {
+			return os.Getenv(strings.Replace(path, " ", "_", -1))
 		}
 	}
 

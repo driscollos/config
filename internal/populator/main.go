@@ -10,9 +10,9 @@ import (
 	"github.com/driscollos/config/internal/sourcer"
 )
 
-func New() Populator {
+func New(src sourcer.Sourcer) Populator {
 	return populator{
-		src:            sourcer.New(),
+		src:            src,
 		floatParser:    floatParser.New(),
 		durationParser: durationParser.New(),
 	}

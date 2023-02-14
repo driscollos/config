@@ -44,6 +44,10 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 		ft := t.Field(i)
 
 		name := strings.Trim(fmt.Sprintf("%s_%s", prefix, t.Field(i).Name), "_")
+		if len(ft.Tag.Get("src")) > 0 {
+			name = ft.Tag.Get("src")
+		}
+
 		value := p.src.Get(name)
 		if len(value) < 1 {
 			value = ft.Tag.Get("default")
@@ -151,7 +155,7 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 					f.SetInt(int64(converted))
 				}
 			}
-		case reflect.Float64:
+		case reflect.Float32, reflect.Float64:
 			fVal, _ := p.floatParser.Float64(value)
 			f.SetFloat(fVal)
 		case reflect.Bool:

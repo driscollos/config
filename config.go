@@ -6,6 +6,7 @@ package config
 
 import (
 	"errors"
+	"github.com/driscollos/config/internal/populator"
 	"github.com/driscollos/config/internal/sourcer"
 	"reflect"
 	"strconv"
