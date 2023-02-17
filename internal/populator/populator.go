@@ -53,11 +53,14 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 			value = ft.Tag.Get("default")
 		}
 
-		if len(value) < 1 {
-			switch strings.ToLower(ft.Tag.Get("required")) {
-			case "yes", "1", "true", "on":
-				return errors.New(fmt.Sprintf("missing required value : %s", name))
-			}
+		isRequired := false
+		switch strings.ToLower(ft.Tag.Get("required")) {
+		case "yes", "1", "true", "on":
+			isRequired = true
+		}
+
+		if len(value) < 1 && isRequired {
+			return errors.New(fmt.Sprintf("missing required value : %s", name))
 		}
 
 		switch ft.Type.Kind() {
@@ -67,7 +70,9 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 				f.SetMapIndex(reflect.ValueOf(key), reflect.New(reflect.New(f.Type().Elem()).Elem().Type()).Elem())
 				if reflect.New(f.Type().Elem()).Elem().Kind() == reflect.Struct {
 					inner := reflect.New(reflect.New(f.Type().Elem()).Elem().Type()).Elem()
-					p.populate(reflect.New(f.Type().Elem()).Elem().Type(), inner, fmt.Sprintf("%s_%s", name, key))
+					if err := p.populate(reflect.New(f.Type().Elem()).Elem().Type(), inner, fmt.Sprintf("%s_%s", name, key)); err != nil {
+						return err
+					}
 					f.SetMapIndex(reflect.ValueOf(key), inner)
 				}
 			}
@@ -89,6 +94,9 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 							durationBits = append(durationBits, duration)
 						}
 					}
+					if isRequired && len(durationBits) < 1 {
+						return errors.New(fmt.Sprintf("missing required value : %s", name))
+					}
 					f.Set(reflect.ValueOf(durationBits))
 				} else {
 					intBits := make([]int, 0)
@@ -97,6 +105,9 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 						if err == nil {
 							intBits = append(intBits, converted)
 						}
+					}
+					if isRequired && len(intBits) < 1 {
+						return errors.New(fmt.Sprintf("missing required value : %s", name))
 					}
 					f.Set(reflect.ValueOf(intBits))
 				}
@@ -107,6 +118,9 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 					if err == nil {
 						floatBits = append(floatBits, fVal)
 					}
+				}
+				if isRequired && len(floatBits) < 1 {
+					return errors.New(fmt.Sprintf("missing required value : %s", name))
 				}
 				f.Set(reflect.ValueOf(floatBits))
 			case reflect.Bool:
@@ -124,7 +138,11 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 				}
 				f.Set(reflect.ValueOf(boolBits))
 			case reflect.Struct:
-				for i := 0; i < p.getSliceCount(value); i++ {
+				sliceCount := p.getSliceCount(value)
+				if isRequired && sliceCount < 1 {
+					return errors.New(fmt.Sprintf("missing required value : %s", name))
+				}
+				for i := 0; i < sliceCount; i++ {
 					inner := reflect.New(reflect.New(f.Type().Elem()).Elem().Type()).Elem()
 					if err := p.populate(inner.Type(), inner, fmt.Sprintf("%s_%d", name, i)); err != nil {
 						return err
@@ -136,10 +154,14 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 		case reflect.Chan:
 			f.Set(reflect.MakeChan(ft.Type, 0))
 		case reflect.Struct:
-			p.populate(ft.Type, f, name)
+			if err := p.populate(ft.Type, f, name); err != nil {
+				return err
+			}
 		case reflect.Ptr:
 			fv := reflect.New(ft.Type.Elem())
-			p.populate(ft.Type.Elem(), fv.Elem(), prefix)
+			if err := p.populate(ft.Type.Elem(), fv.Elem(), prefix); err != nil {
+				return err
+			}
 			f.Set(fv)
 		case reflect.String:
 			f.SetString(value)
@@ -152,11 +174,18 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 			} else {
 				converted, err := strconv.Atoi(value)
 				if err == nil {
+					if converted == 0 && isRequired {
+						return errors.New(fmt.Sprintf("missing required value : %s", name))
+					}
 					f.SetInt(int64(converted))
 				}
 			}
 		case reflect.Float32, reflect.Float64:
 			fVal, _ := p.floatParser.Float64(value)
+			if fVal == 0 && isRequired {
+				return errors.New(fmt.Sprintf("missing required value : %s", name))
+			}
+
 			f.SetFloat(fVal)
 		case reflect.Bool:
 			switch strings.ToLower(value) {
