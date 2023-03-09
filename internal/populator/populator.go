@@ -86,6 +86,8 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 			}
 
 			switch f.Type().Elem().Kind() {
+			case reflect.Uint8:
+				f.Set(reflect.ValueOf([]byte(value)))
 			case reflect.String:
 				f.Set(reflect.ValueOf(bits))
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
