@@ -60,20 +60,23 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 		}
 
 		if len(value) < 1 && isRequired {
-			return errors.New(fmt.Sprintf("missing required value : %s", name))
+			return fmt.Errorf("missing required value : %s", name)
 		}
 
 		switch ft.Type.Kind() {
 		case reflect.Map:
 			f.Set(reflect.MakeMap(ft.Type))
-			for _, key := range p.findKeys(p.src.Get(name)) {
-				f.SetMapIndex(reflect.ValueOf(key), reflect.New(reflect.New(f.Type().Elem()).Elem().Type()).Elem())
-				if reflect.New(f.Type().Elem()).Elem().Kind() == reflect.Struct {
-					inner := reflect.New(reflect.New(f.Type().Elem()).Elem().Type()).Elem()
-					if err := p.populate(reflect.New(f.Type().Elem()).Elem().Type(), inner, fmt.Sprintf("%s_%s", name, key)); err != nil {
-						return err
+			keys, err := p.findKeys(p.src.Get(name))
+			if err == nil {
+				for _, key := range keys {
+					f.SetMapIndex(reflect.ValueOf(key), reflect.New(reflect.New(f.Type().Elem()).Elem().Type()).Elem())
+					if reflect.New(f.Type().Elem()).Elem().Kind() == reflect.Struct {
+						inner := reflect.New(reflect.New(f.Type().Elem()).Elem().Type()).Elem()
+						if err := p.populate(reflect.New(f.Type().Elem()).Elem().Type(), inner, fmt.Sprintf("%s_%s", name, key)); err != nil {
+							return err
+						}
+						f.SetMapIndex(reflect.ValueOf(key), inner)
 					}
-					f.SetMapIndex(reflect.ValueOf(key), inner)
 				}
 			}
 		case reflect.Slice:
@@ -95,7 +98,7 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 						}
 					}
 					if isRequired && len(durationBits) < 1 {
-						return errors.New(fmt.Sprintf("missing required value : %s", name))
+						return fmt.Errorf(ErrorMissingRequiredValue, name)
 					}
 					f.Set(reflect.ValueOf(durationBits))
 				} else {
@@ -107,7 +110,7 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 						}
 					}
 					if isRequired && len(intBits) < 1 {
-						return errors.New(fmt.Sprintf("missing required value : %s", name))
+						return fmt.Errorf(ErrorMissingRequiredValue, name)
 					}
 					f.Set(reflect.ValueOf(intBits))
 				}
@@ -120,7 +123,7 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 					}
 				}
 				if isRequired && len(floatBits) < 1 {
-					return errors.New(fmt.Sprintf("missing required value : %s", name))
+					return fmt.Errorf(ErrorMissingRequiredValue, name)
 				}
 				f.Set(reflect.ValueOf(floatBits))
 			case reflect.Bool:
@@ -140,7 +143,7 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 			case reflect.Struct:
 				sliceCount := p.getSliceCount(value)
 				if isRequired && sliceCount < 1 {
-					return errors.New(fmt.Sprintf("missing required value : %s", name))
+					return fmt.Errorf("missing required value : %s", name)
 				}
 				for i := 0; i < sliceCount; i++ {
 					inner := reflect.New(reflect.New(f.Type().Elem()).Elem().Type()).Elem()
@@ -175,7 +178,7 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 				converted, err := strconv.Atoi(value)
 				if err == nil {
 					if converted == 0 && isRequired {
-						return errors.New(fmt.Sprintf("missing required value : %s", name))
+						return fmt.Errorf(ErrorMissingRequiredValue, name)
 					}
 					f.SetInt(int64(converted))
 				}
@@ -183,7 +186,7 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 		case reflect.Float32, reflect.Float64:
 			fVal, _ := p.floatParser.Float64(value)
 			if fVal == 0 && isRequired {
-				return errors.New(fmt.Sprintf("missing required value : %s", name))
+				return fmt.Errorf(ErrorMissingRequiredValue, name)
 			}
 
 			f.SetFloat(fVal)
@@ -200,19 +203,22 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 	return nil
 }
 
-func (p populator) findKeys(src string) []string {
+func (p populator) findKeys(src string) ([]string, error) {
 	if len(src) < 1 {
-		return nil
+		return nil, errors.New(ErrorSourceIsBlank)
 	}
 	src = fmt.Sprintf("{%s}", src)
 
 	container := make(map[string]interface{})
-	json.Unmarshal([]byte(src), &container)
+	if err := json.Unmarshal([]byte(src), &container); err != nil {
+		return nil, err
+	}
+
 	keys := make([]string, 0)
-	for key, _ := range container {
+	for key := range container {
 		keys = append(keys, key)
 	}
-	return keys
+	return keys, nil
 }
 
 func (p populator) getSliceCount(raw string) int {

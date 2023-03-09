@@ -51,8 +51,9 @@ var _ = Describe("Unit tests", func() {
 
 				mockSourcer.EXPECT().Get("Name").Return("Bob")
 
-				myPopulator.Populate(&myStruct)
+				err := myPopulator.Populate(&myStruct)
 				Expect(myStruct.Name).To(Equal("Bob"))
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 		When("a struct is provided with an int in it", func() {
@@ -63,7 +64,8 @@ var _ = Describe("Unit tests", func() {
 
 				mockSourcer.EXPECT().Get("Age").Return("40")
 
-				myPopulator.Populate(&myStruct)
+				err := myPopulator.Populate(&myStruct)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(myStruct.Age).To(Equal(40))
 			})
 		})
@@ -81,7 +83,8 @@ var _ = Describe("Unit tests", func() {
 				mockSourcer.EXPECT().Get(gomock.Any()).Return("yes")
 				mockSourcer.EXPECT().Get(gomock.Any()).Return("1")
 
-				myPopulator.Populate(&myStruct)
+				err := myPopulator.Populate(&myStruct)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(myStruct.BoolOne).To(BeTrue())
 				Expect(myStruct.BoolTwo).To(BeTrue())
 				Expect(myStruct.BoolThree).To(BeTrue())
@@ -97,7 +100,8 @@ var _ = Describe("Unit tests", func() {
 
 					mockSourcer.EXPECT().Get("Age").Return("--invalid--")
 
-					myPopulator.Populate(&myStruct)
+					err := myPopulator.Populate(&myStruct)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(myStruct.Age).To(Equal(float32(0)))
 				})
 			})
@@ -108,7 +112,8 @@ var _ = Describe("Unit tests", func() {
 					}{}
 
 					mockSourcer.EXPECT().Get("MyAge").Return("60.2")
-					myPopulator.Populate(&myStruct)
+					err := myPopulator.Populate(&myStruct)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(myStruct.MyAge).To(Equal(float32(60.2)))
 				})
 			})
@@ -122,7 +127,8 @@ var _ = Describe("Unit tests", func() {
 
 					mockSourcer.EXPECT().Get("Age").Return("--invalid--")
 
-					myPopulator.Populate(&myStruct)
+					err := myPopulator.Populate(&myStruct)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(myStruct.Age).To(Equal(float64(0)))
 				})
 			})
@@ -134,7 +140,8 @@ var _ = Describe("Unit tests", func() {
 
 					mockSourcer.EXPECT().Get("Age").Return("40.5")
 
-					myPopulator.Populate(&myStruct)
+					err := myPopulator.Populate(&myStruct)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(myStruct.Age).To(Equal(40.5))
 				})
 			})
@@ -147,7 +154,8 @@ var _ = Describe("Unit tests", func() {
 
 				mockSourcer.EXPECT().Get("Hobbies").Return("Travel,Adventure")
 
-				myPopulator.Populate(&myStruct)
+				err := myPopulator.Populate(&myStruct)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(myStruct.Hobbies).To(Equal([]string{"Travel", "Adventure"}))
 			})
 		})

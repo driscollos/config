@@ -52,7 +52,9 @@ func (s *sourcer) setup() error {
 			}
 			continue
 		}
-		s.loadFromSource(file, bytes)
+		if err = s.loadFromSource(file, bytes); err != nil {
+			return fmt.Errorf("error parsing source file : %s : %s", file, err.Error())
+		}
 	}
 	s.isSetup = true
 	return nil
@@ -90,7 +92,10 @@ func (s *sourcer) Source(path string) {
 }
 
 func (s *sourcer) Get(path string) string {
-	s.setup()
+	if err := s.setup(); err != nil {
+		return ""
+	}
+
 	var retVal interface{}
 
 	if s.sources.useCommandLine {
@@ -126,7 +131,10 @@ func (s *sourcer) Get(path string) string {
 }
 
 func (s *sourcer) get(source map[string]interface{}, path string) interface{} {
-	s.setup()
+	if err := s.setup(); err != nil {
+		return nil
+	}
+
 	bits := strings.Split(path, "_")
 	if len(bits) == 1 {
 		data := source[path]

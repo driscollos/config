@@ -20,12 +20,10 @@ func TestSuite(t *testing.T) {
 var _ = Describe("Duration string parser", func() {
 	var (
 		mockController *gomock.Controller
-		myParser       parser
 	)
 
 	BeforeEach(func() {
 		mockController = gomock.NewController(GinkgoT())
-		myParser = parser{}
 	})
 
 	AfterEach(func() {
@@ -35,6 +33,7 @@ var _ = Describe("Duration string parser", func() {
 	Context("sample strings", func() {
 		When("various forms are used", func() {
 			It("should parse the string correctly", func() {
+				myParser := parser{}
 				for key, val := range map[string]int64{
 					"1s":            1000000000,
 					"1 sec":         1000000000,
