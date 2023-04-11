@@ -126,6 +126,8 @@ func (s *sourcer) Get(path string) string {
 	case reflect.Slice, reflect.Map:
 		bytes, _ := json.Marshal(retVal)
 		return string(bytes)[1 : len(string(bytes))-1]
+	case reflect.Float32, reflect.Float64:
+		return strings.TrimSpace(fmt.Sprintf("%f", retVal))
 	}
 	return strings.TrimSpace(fmt.Sprintf("%v", retVal))
 }
