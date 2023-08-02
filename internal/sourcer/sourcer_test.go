@@ -74,7 +74,7 @@ Age: 41
 				Expect(mySourcer.Get("Name")).To(Equal("Bob"))
 				Expect(mySourcer.Get("Hobbies_Sports_First")).To(Equal("Skating"))
 				Expect(mySourcer.Get("Hobbies_Sports_Best")).To(Equal("Running"))
-				Expect(mySourcer.Get("Age")).To(Equal("41"))
+				Expect(mySourcer.Get("Age")).To(Equal("41.000000"))
 			})
 		})
 
