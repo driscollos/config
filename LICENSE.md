@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2022 [John Driscoll](https://github.com/jddcode)
+Copyright (c) 2022 [John Driscoll](https://github.com/codebyjdd)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
