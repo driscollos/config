@@ -107,5 +107,43 @@ Name: Bob
 				Expect(mySourcer.Get("Name")).To(Equal("Bob"))
 			})
 		})
+
+		When("there is only one source file and", func() {
+			When("the file reader is unable to read the file", func() {
+				It("should return blank when asked to Get a variable", func() {
+					mockFileReader.EXPECT().Read("mysource.yml").Return(nil, errors.New("some-error"))
+					mySourcer.Source("mysource.yml")
+					Expect(mySourcer.Get("Name")).To(Equal(""))
+				})
+			})
+			When("the relevant parser is unable to parse the yaml file", func() {
+				It("should return blank when asked to Get a variable", func() {
+					mockFileReader.EXPECT().Read("mysource.yml").Return([]byte(`--not-valid--`), nil)
+					mySourcer.Source("mysource.yml")
+					Expect(mySourcer.Get("Name")).To(Equal(""))
+				})
+			})
+			When("the relevant parser is unable to parse the json file", func() {
+				It("should return blank when asked to Get a variable", func() {
+					mockFileReader.EXPECT().Read("mysource.json").Return([]byte(`--not-valid--`), nil)
+					mySourcer.Source("mysource.json")
+					Expect(mySourcer.Get("Name")).To(Equal(""))
+				})
+			})
+			When("the filename of the source file has an unknown extension", func() {
+				It("should return blank when asked to Get a variable", func() {
+					mockFileReader.EXPECT().Read("mysource.unknown").Return([]byte(`--not-valid--`), nil)
+					mySourcer.Source("mysource.unknown")
+					Expect(mySourcer.Get("Name")).To(Equal(""))
+				})
+			})
+			When("the filename of the source file has no extension", func() {
+				It("should return blank when asked to Get a variable", func() {
+					mockFileReader.EXPECT().Read("mysource").Return([]byte(`--not-valid--`), nil)
+					mySourcer.Source("mysource")
+					Expect(mySourcer.Get("Name")).To(Equal(""))
+				})
+			})
+		})
 	})
 })
