@@ -20,9 +20,21 @@ func New() Config {
 	}
 }
 
+// Config will parse terminal arguments, environment variables or configuration sourced from json or yaml files in order to
+// understand the configuration of your application or service. This configuration can be retrieved either by calling the
+// access methods (which will attempt to convert the requested value to their respective data type) or by passing a struct
+// to Populate - which will populate the matching fields of your configuration struct.
 type Config interface {
+
+	// Bool will attempt to convert the parameter whose name matches the param argument into a boolean. By default this
+	// function will return FALSE
 	Bool(param string) bool
+
+	// Date will attempt to convert the parameter whose name matches the param argument into a time.Time value - if the
+	// parameter is not known to the Config struct or there is an error with conversion this will be reflected in the
+	// error return value
 	Date(param, layout string) (time.Time, error)
+
 	Float(param string) float64
 	Int(param string) int
 	Populate(container interface{}) error
