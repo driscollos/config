@@ -45,10 +45,11 @@ var _ = Describe("Sourcer Unit Tests", func() {
 	})
 
 	Context("Data sourcer", func() {
-		When("a yaml file is processed", func() {
-			It("should understand the contents of the yaml file correctly", func() {
-				mockTerminalReader.EXPECT().Get(gomock.Any()).Return("", errors.New("not_found")).Times(4)
-				mockFileReader.EXPECT().Read("test.yaml").Return([]byte(strings.TrimSpace(`
+		When("a yaml file is processed and", func() {
+			When("there is nothing wrong with the file", func() {
+				It("should understand the contents of the yaml file correctly", func() {
+					mockTerminalReader.EXPECT().Get(gomock.Any()).Return("", errors.New("not_found")).Times(4)
+					mockFileReader.EXPECT().Read("test.yaml").Return([]byte(strings.TrimSpace(`
 Name: Bob
 Hobbies:
   Sports:
@@ -56,11 +57,27 @@ Hobbies:
     Best: Running
 Age: 41
 				`)), nil)
-				mockFileReader.EXPECT().Read("test.json").Return(nil, errors.New("file not found"))
-				Expect(mySourcer.Get("Name")).To(Equal("Bob"))
-				Expect(mySourcer.Get("Hobbies_Sports_First")).To(Equal("Skating"))
-				Expect(mySourcer.Get("Hobbies_Sports_Best")).To(Equal("Running"))
-				Expect(mySourcer.Get("Age")).To(Equal("41"))
+					mockFileReader.EXPECT().Read("test.json").Return(nil, errors.New("file not found"))
+					Expect(mySourcer.Get("Name")).To(Equal("Bob"))
+					Expect(mySourcer.Get("Hobbies_Sports_First")).To(Equal("Skating"))
+					Expect(mySourcer.Get("Hobbies_Sports_Best")).To(Equal("Running"))
+					Expect(mySourcer.Get("Age")).To(Equal("41"))
+				})
+			})
+			When("the variable we are asking for is not present in the file or any other source", func() {
+				It("should return the empty string", func() {
+					mockTerminalReader.EXPECT().Get(gomock.Any()).Return("", errors.New("not_found"))
+					mockFileReader.EXPECT().Read("test.yaml").Return([]byte(strings.TrimSpace(`
+Name: Bob
+Hobbies:
+  Sports:
+    First: Skating
+    Best: Running
+Age: 41
+				`)), nil)
+					mockFileReader.EXPECT().Read("test.json").Return(nil, errors.New("file not found"))
+					Expect(mySourcer.Get("NotHere")).To(Equal(""))
+				})
 			})
 		})
 

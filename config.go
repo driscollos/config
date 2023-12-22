@@ -26,8 +26,8 @@ func New() Config {
 // to Populate - which will populate the matching fields of your configuration struct.
 type Config interface {
 
-	// Bool will attempt to convert the parameter whose name matches the param argument into a boolean. The default
-	// return value is FALSE
+	// Bool will attempt to convert the parameter whose name matches the param argument into a boolean.
+	// The default return value is FALSE
 	Bool(param string) bool
 
 	// Date will attempt to convert the parameter whose name matches the param argument into a time.Time value - if the
@@ -35,12 +35,12 @@ type Config interface {
 	// error return value
 	Date(param, layout string) (time.Time, error)
 
-	// Float will attempt to convert the parameter whose name matches the param argument into a float64 value. The default
-	// return value is 0
+	// Float will attempt to convert the parameter whose name matches the param argument into a float64 value.
+	// The default return value is 0
 	Float(param string) float64
 
-	// Int will attempt to convert the parameter whose name matches the param argument into an int value. The default
-	// return value is 0
+	// Int will attempt to convert the parameter whose name matches the param argument into an int value.
+	// The default return value is 0
 	Int(param string) int
 
 	// Populate will attempt to match the fields in the container (struct) argument to the parameters known to the Config
@@ -53,17 +53,23 @@ type Config interface {
 	// information used to provide configuration
 	Source(path string)
 
-	// String will attempt to convert the parameter whose name matches the param argument into a string value. The default
-	// return value is ""
+	// String will attempt to convert the parameter whose name matches the param argument into a string value.
+	// The default return value is ""
 	String(param string) string
+
+	// WithFirestore will attempt to use GCP Firestore to retrieve an instance of your config. If there is no instance of your
+	// config at the path given, one will be written to the path for you, allowing you to populate it
+	// See: https://cloud.google.com/firestore
+	// See: https://cloud.google.com/firestore/pricing
+	WithFirestore(path string, credentials []byte) error
 }
 
 type config struct {
 	source sourcer.Sourcer
 }
 
-// Bool will attempt to convert the parameter whose name matches the param argument into a boolean. The default
-// return value is FALSE
+// Bool will attempt to convert the parameter whose name matches the param argument into a boolean.
+// The default return value is FALSE
 func (c config) Bool(param string) bool {
 	switch strings.ToLower(c.source.Get(param)) {
 	case "true", "yes", "on", "1":
@@ -79,15 +85,15 @@ func (c config) Date(param, layout string) (time.Time, error) {
 	return time.Parse(layout, c.source.Get(param))
 }
 
-// Float will attempt to convert the parameter whose name matches the param argument into a float64 value. The default
-// return value is 0
+// Float will attempt to convert the parameter whose name matches the param argument into a float64 value.
+// The default return value is 0
 func (c config) Float(param string) float64 {
 	val, _ := strconv.ParseFloat(c.source.Get(param), 64)
 	return val
 }
 
-// Int will attempt to convert the parameter whose name matches the param argument into an int value. The default
-// return value is 0
+// Int will attempt to convert the parameter whose name matches the param argument into an int value.
+// The default return value is 0
 func (c config) Int(param string) int {
 	val, _ := strconv.Atoi(c.source.Get(param))
 	return val
@@ -105,14 +111,14 @@ func (c config) Populate(container interface{}) error {
 	return p.Populate(container)
 }
 
-// String will attempt to convert the parameter whose name matches the param argument into a string value. The default
-// return value is ""
+// String will attempt to convert the parameter whose name matches the param argument into a string value.
+// The default return value is ""
 func (c config) String(param string) string {
 	return c.source.Get(param)
 }
 
-// String will attempt to convert the parameter whose name matches the param argument into a string value. The default
-// return value is ""
+// String will attempt to convert the parameter whose name matches the param argument into a string value.
+// The default return value is ""
 func (c config) Source(path string) {
 	c.source.Source(path)
 }
