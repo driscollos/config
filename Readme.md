@@ -183,8 +183,9 @@ Parsing of `time.Duration` default values in struct tags supports a variety of c
 
 ## Specifying a file to source data from
 
-You can specify the exact file which should be used to populate your config. If you specify a source file, all other sources are
-ignored including commandline arguments and environment variables. Here is an example:
+You can specify the exact file which should be used to populate your config. If you specify a source file, 
+all other potential file sources will be ignored. Data from the terminal and the environment
+will still take precedence, in that order. Here is an example:
 
 ```go
 c := config.New()

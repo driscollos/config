@@ -98,13 +98,33 @@ Scores:
 			})
 		})
 
-		When("a source is specified manually", func() {
-			It("should use this over all other sources", func() {
-				mockFileReader.EXPECT().Read("override.yaml").Return([]byte(strings.TrimSpace(`
-Name: Bob
-				`)), nil)
-				mySourcer.Source("override.yaml")
-				Expect(mySourcer.Get("Name")).To(Equal("Bob"))
+		When("a source is specified manually and", func() {
+			When("there is data from a variable set on the terminal", func() {
+				It("should favour the data from the terminal", func() {
+					mockFileReader.EXPECT().Read("override.yaml").Return([]byte("Name: fromFile"), nil)
+					mockTerminalReader.EXPECT().Get("Name").Return("fromTerminal", nil)
+					Expect(os.Setenv("Name", "fromEnv")).ToNot(HaveOccurred())
+					mySourcer.Source("override.yaml")
+					Expect(mySourcer.Get("Name")).To(Equal("fromTerminal"))
+				})
+			})
+			When("there is no data from the terminal but there is an environment variable", func() {
+				It("should favour data from the environment variable", func() {
+					mockFileReader.EXPECT().Read("override.yaml").Return([]byte("Name: fromFile"), nil)
+					mockTerminalReader.EXPECT().Get("Name").Return("", errors.New("not found"))
+					Expect(os.Setenv("Name", "fromEnv")).ToNot(HaveOccurred())
+					mySourcer.Source("override.yaml")
+					Expect(mySourcer.Get("Name")).To(Equal("fromEnv"))
+				})
+			})
+			When("there is no data from the terminal or the environment but there is something in the file the end user specified", func() {
+				It("should use the data from the file the user specified", func() {
+					mockFileReader.EXPECT().Read("override.yaml").Return([]byte("Name: fromFile"), nil)
+					mockTerminalReader.EXPECT().Get("Name").Return("", errors.New("not found"))
+					Expect(os.Setenv("Name", "")).ToNot(HaveOccurred())
+					mySourcer.Source("override.yaml")
+					Expect(mySourcer.Get("Name")).To(Equal("fromFile"))
+				})
 			})
 		})
 

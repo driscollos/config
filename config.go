@@ -49,8 +49,8 @@ type Config interface {
 	// as required:"true" in struct tags
 	Populate(container interface{}) error
 
-	// Source overrides all default information sourcing and explicitly uses the file at the path argument as the source of
-	// information used to provide configuration
+	// Source explicitly specifies a file to be used as a source of information. Information from higher priority sources such as
+	// the terminal or environment variables is still considered
 	Source(path string)
 
 	// String will attempt to convert the parameter whose name matches the param argument into a string value. The default
