@@ -245,7 +245,7 @@ func main() {
 
     for {
         fmt.Println("name", myInformation.Name)
-    time.Sleep(time.Second)
+        time.Sleep(time.Second)
     }
 }
 
