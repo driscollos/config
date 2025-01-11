@@ -5,6 +5,7 @@
 package sourcer
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	fileReader "github.com/driscollos/config/internal/sourcer/file-reader"
 	terminalReader "github.com/driscollos/config/internal/sourcer/terminal-reader"
@@ -21,6 +23,7 @@ import (
 //go:generate mockgen -destination=../mocks/mock-data-sourcer.go -package=mocks . Sourcer
 type Sourcer interface {
 	Get(path string) string
+	HotReload(ctx context.Context, onChange func())
 	Source(path string)
 }
 
@@ -31,6 +34,7 @@ type sourcer struct {
 	}
 	sources struct {
 		files          []string
+		hotReload      map[string]time.Time
 		useCommandLine bool
 		useEnvironment bool
 	}
@@ -41,6 +45,37 @@ type sourcer struct {
 func (s *sourcer) Source(path string) {
 	s.sources.files = []string{path}
 	s.isSetup = false
+}
+
+func (s *sourcer) HotReload(ctx context.Context, onChange func()) {
+	ticker := time.NewTicker(time.Second)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				for file, lastModified := range s.sources.hotReload {
+					info, err := os.Stat(file)
+					if err != nil {
+						continue
+					}
+					if info.ModTime().After(lastModified) {
+						bytes, err := os.ReadFile(file)
+						if err != nil {
+							continue
+						}
+						if err = s.loadFromSource(file, bytes); err != nil {
+							continue
+						}
+						s.sources.hotReload[file] = time.Now()
+						onChange()
+					}
+				}
+			}
+		}
+	}()
 }
 
 func (s *sourcer) Get(path string) string {
@@ -101,6 +136,7 @@ func (s *sourcer) setup() error {
 		if err = s.loadFromSource(file, bytes); err != nil {
 			return fmt.Errorf("error parsing source file : %s : %s", file, err.Error())
 		}
+		s.sources.hotReload[file] = time.Now()
 	}
 	s.isSetup = true
 	return nil
@@ -163,7 +199,7 @@ func (s *sourcer) get(source map[string]interface{}, path string) interface{} {
 				}
 				return extract.([]interface{})[partAsInt]
 			}
-			if extract == nil || reflect.TypeOf(extract).Kind() != reflect.Map {
+			if reflect.TypeOf(extract).Kind() != reflect.Map {
 				return nil
 			}
 			return extract.(map[string]interface{})[part]

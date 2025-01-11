@@ -5,6 +5,7 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"github.com/driscollos/config/internal/populator"
 	"github.com/driscollos/config/internal/sourcer"
@@ -38,6 +39,11 @@ type Config interface {
 	// Float will attempt to convert the parameter whose name matches the param argument into a float64 value. The default
 	// return value is 0
 	Float(param string) float64
+
+	// HotReload will attempt to check for changes any files used as a source of information. If changes are detected, the
+	// config library will reload the information from that file. Populate actions with a mix of structs to be repopulated
+	// with the new information, and functions without parameters to be called in response to the change eg myfunc() {}
+	HotReload(ctx context.Context, actions ...interface{})
 
 	// Int will attempt to convert the parameter whose name matches the param argument into an int value. The default
 	// return value is 0
@@ -84,6 +90,36 @@ func (c config) Date(param, layout string) (time.Time, error) {
 func (c config) Float(param string) float64 {
 	val, _ := strconv.ParseFloat(c.source.Get(param), 64)
 	return val
+}
+
+// HotReload will attempt to check for changes any files used as a source of information. If changes are detected, the
+// config library will reload the information from that file. Populate actions with a mix of structs to be repopulated
+// with the new information, and functions without parameters to be called in response to the change eg myfunc() {}
+func (c config) HotReload(ctx context.Context, actions ...interface{}) {
+	structs := make([]interface{}, 0)
+	funcs := make([]interface{}, 0)
+
+	for _, action := range actions {
+		t := reflect.TypeOf(action)
+		if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct {
+			structs = append(structs, action)
+			continue
+		}
+		if t.Kind() == reflect.Func && t.NumIn() == 0 {
+			funcs = append(funcs, action)
+		}
+	}
+
+	c.source.HotReload(ctx, func() {
+		for _, myStruct := range structs {
+			_ = populator.New(c.source).Populate(myStruct)
+		}
+		for _, myFunc := range funcs {
+			if f, ok := myFunc.(func()); ok {
+				f()
+			}
+		}
+	})
 }
 
 // Int will attempt to convert the parameter whose name matches the param argument into an int value. The default
