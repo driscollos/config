@@ -191,3 +191,65 @@ will still take precedence, in that order. Here is an example:
 c := config.New()
 c.Source("./env.yml")
 ```
+
+## Hot Reload
+
+You can reload your configuration on the fly without stopping your service.
+In order to do this, you must make a change to any of the files which contained
+data when your service started up eg `env.local.yml`. If one of the options
+for a local data file did not exist when the service started, it will not be
+checked for changes.
+
+### Using Hot Reload
+
+To activate hot reload, call the `HotReload(ctx context.Context, actions ...interface{})` 
+function. The first parameter is a context; if the context is ever `done` then
+the hot reload functionality will cease. This is very useful for handling
+os signals.
+
+The second parameter is a variadic list of actions, which are defined as either
+a pointer to a `struct` or a function which has no parameters. You can supply
+any number of these in any order you like. If you pass a pointer to a struct
+it will be rehydrated from the latest information whenever the source data
+changes; it is the same as calling the `Populate()` function.
+
+If you pass a function with no parameters, it will be called any time the
+source data changes; you can use this to update db connections or reload
+anything which relies upon the data in your configuration.
+
+In the example below, we rehydrate the struct `myInformation` every time
+the underlying data changes, and we also call a function which makes use
+of a closure to act on the new data.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/driscollos/config"
+    "time"
+)
+
+func main() {
+    c := config.New()
+    myInformation := myData{}
+    if err := c.Populate(&myInformation); err != nil {
+        fmt.Println("error", err.Error())
+    }
+    c.HotReload(context.Background(), &myInformation, func() {
+        func(data myData) {
+            fmt.Println("new name is:", data.Name)
+        }(myInformation)
+    })
+
+    for {
+        fmt.Println("name", myInformation.Name)
+    time.Sleep(time.Second)
+    }
+}
+
+type myData struct {
+    Name string
+}
+```

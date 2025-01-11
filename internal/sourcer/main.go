@@ -7,6 +7,7 @@ package sourcer
 import (
 	fileReader "github.com/driscollos/config/internal/sourcer/file-reader"
 	terminalReader "github.com/driscollos/config/internal/sourcer/terminal-reader"
+	"time"
 )
 
 func New() Sourcer {
@@ -29,6 +30,7 @@ func New() Sourcer {
 		"env.local.json",
 	}
 
+	s.sources.hotReload = make(map[string]time.Time)
 	s.sources.useCommandLine = true
 	s.sources.useEnvironment = true
 	return &s
