@@ -38,6 +38,52 @@ type sourcer struct {
 	values  []map[string]interface{}
 }
 
+func (s *sourcer) Source(path string) {
+	s.sources.files = []string{path}
+	s.isSetup = false
+}
+
+func (s *sourcer) Get(path string) string {
+	if err := s.setup(); err != nil {
+		return ""
+	}
+
+	var retVal interface{}
+	if s.sources.useCommandLine {
+		argVal, err := s.readers.terminal.Get(path)
+		if err == nil {
+			return argVal
+		}
+	}
+
+	if s.sources.useEnvironment {
+		if len(os.Getenv(strings.Replace(path, " ", "_", -1))) > 0 {
+			return os.Getenv(strings.Replace(path, " ", "_", -1))
+		}
+	}
+
+	for _, source := range s.values {
+		val := s.get(source, path)
+		if val != nil {
+			retVal = val
+		}
+	}
+
+	if retVal == nil {
+		return ""
+	}
+
+	switch reflect.TypeOf(retVal).Kind() {
+	case reflect.Slice, reflect.Map:
+		bytes, _ := json.Marshal(retVal)
+		return string(bytes)[1 : len(string(bytes))-1]
+	case reflect.Float32, reflect.Float64:
+		return strings.TrimSpace(fmt.Sprintf("%f", retVal))
+	default:
+		return strings.TrimSpace(fmt.Sprintf("%v", retVal))
+	}
+}
+
 func (s *sourcer) setup() error {
 	if s.isSetup {
 		return nil
@@ -82,54 +128,6 @@ func (s *sourcer) loadFromSource(filename string, source []byte) error {
 
 	s.values = append(s.values, data)
 	return nil
-}
-
-func (s *sourcer) Source(path string) {
-	s.sources.useCommandLine = false
-	s.sources.useEnvironment = false
-	s.sources.files = []string{path}
-	s.isSetup = false
-}
-
-func (s *sourcer) Get(path string) string {
-	if err := s.setup(); err != nil {
-		return ""
-	}
-
-	var retVal interface{}
-
-	if s.sources.useCommandLine {
-		argVal, err := s.readers.terminal.Get(path)
-		if err == nil {
-			return argVal
-		}
-	}
-
-	if s.sources.useEnvironment {
-		if len(os.Getenv(strings.Replace(path, " ", "_", -1))) > 0 {
-			return os.Getenv(strings.Replace(path, " ", "_", -1))
-		}
-	}
-
-	for _, source := range s.values {
-		val := s.get(source, path)
-		if val != nil {
-			retVal = val
-		}
-	}
-
-	if retVal == nil {
-		return ""
-	}
-
-	switch reflect.TypeOf(retVal).Kind() {
-	case reflect.Slice, reflect.Map:
-		bytes, _ := json.Marshal(retVal)
-		return string(bytes)[1 : len(string(bytes))-1]
-	case reflect.Float32, reflect.Float64:
-		return strings.TrimSpace(fmt.Sprintf("%f", retVal))
-	}
-	return strings.TrimSpace(fmt.Sprintf("%v", retVal))
 }
 
 func (s *sourcer) get(source map[string]interface{}, path string) interface{} {
