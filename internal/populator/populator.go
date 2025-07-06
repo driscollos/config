@@ -5,6 +5,7 @@
 package populator
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -57,6 +58,21 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 		switch strings.ToLower(ft.Tag.Get("required")) {
 		case "yes", "1", "true", "on":
 			isRequired = true
+		}
+
+		switch ft.Tag.Get("base64") {
+		case "true":
+			decoded, err := base64.StdEncoding.DecodeString(value)
+			if err != nil {
+				value = ""
+			} else {
+				value = string(decoded)
+			}
+		case "optional":
+			decoded, err := base64.StdEncoding.DecodeString(value)
+			if err == nil {
+				value = string(decoded)
+			}
 		}
 
 		if len(value) < 1 && isRequired {
