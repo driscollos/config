@@ -41,10 +41,16 @@ and can override each other according to priority. The default files are
 
 You can read configuration data by populating a struct. You can make use of the following tags in your structs:
 
-* default - set a default value if no source data is found
-* required (`true`) - returns an error if no data is found for this variable
-* src - override the name of the data source - if you add `src="myVar"` to any variable, it will populate from the 
+* `default` - set a default value if no source data is found
+* `required` (`true`) - returns an error if no data is found for this variable
+* `src` - override the name of the data source - if you add `src="myVar"` to any variable, it will populate from the 
 environment variable or yaml or json variable `myVar`
+* `base64` - this will decode your sourced data from base64 encoding. Set this tag to
+  * `optional` - in this case the data will be decoded from base64. If decoding fails, the
+original value will be used. This is useful for times when the source of the data changes
+and sometimes you need to base64 encode, and sometimes not
+  * `true` - in this case the data will be decoded; if decoding fails the data will
+be set to the empty string
 
 Commandline arguments, environment variables and variables in 
 yaml or json files can be either a direct case match, or all in capitals eg.
