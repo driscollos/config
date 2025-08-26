@@ -6,13 +6,14 @@ package sourcer
 
 import (
 	"errors"
-	"github.com/driscollos/config/internal/mocks"
-	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/driscollos/config/internal/mocks"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 )
 
 func TestSuite(t *testing.T) {
@@ -74,7 +75,7 @@ Age: 41
 				Expect(mySourcer.Get("Name")).To(Equal("Bob"))
 				Expect(mySourcer.Get("Hobbies_Sports_First")).To(Equal("Skating"))
 				Expect(mySourcer.Get("Hobbies_Sports_Best")).To(Equal("Running"))
-				Expect(mySourcer.Get("Age")).To(Equal("41.000000"))
+				Expect(mySourcer.Get("Age")).To(Equal("41"))
 			})
 		})
 

@@ -155,8 +155,7 @@ func (s *sourcer) Get(path string) string {
 
 	// 2) Environment
 	if s.sources.useEnvironment {
-		envKey := normalizeEnvKey(path)
-		if val, ok := os.LookupEnv(envKey); ok && val != "" {
+		if val, ok := os.LookupEnv(path); ok && val != "" {
 			return val
 		}
 	}
@@ -319,16 +318,6 @@ func fileExt(filename string) string {
 		return ""
 	}
 	return strings.ToLower(bits[len(bits)-1])
-}
-
-// normalizeEnvKey converts a path to a conventional ENV var key:
-// spaces/dots/hyphens -> underscores, upper-cased.
-func normalizeEnvKey(path string) string {
-	k := strings.TrimSpace(path)
-	k = strings.ReplaceAll(k, " ", "_")
-	k = strings.ReplaceAll(k, ".", "_")
-	k = strings.ReplaceAll(k, "-", "_")
-	return strings.ToUpper(k)
 }
 
 // --- notes ---
