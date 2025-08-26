@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/driscollos/config/internal/mocks"
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 )
 
 func TestSuite(t *testing.T) {

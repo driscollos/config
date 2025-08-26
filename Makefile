@@ -6,6 +6,14 @@
 test:
 	@go test ./...
 
+.PHONY: mocks
+mocks:
+	@go get go.uber.org/mock/mockgen
+	@go get golang.org/x/tools/internal/gocommand
+	@go get golang.org/x/tools/internal/imports
+	@cd internal; go generate ./...
+	@go mod tidy
+
 .PHONY: fmt
 fmt:
 	@gofmt -w .
