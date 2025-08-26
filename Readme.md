@@ -1,66 +1,82 @@
-![License](https://img.shields.io/badge/License-This%20repo%20is%20licensed%20under%20the%20MIT%20license%20-blue)
+![License](https://img.shields.io/badge/License-MIT-blue)
+![Library](https://img.shields.io/badge/Package-Library-green)
+[![Go Reference](https://pkg.go.dev/badge/github.com/driscollos/config.svg)](https://pkg.go.dev/github.com/driscollos/config)
 
-![Library](https://img.shields.io/badge/Library%20Package%20-This%20package%20contains%20a%20library-green)
-
-This repo is licensed under the MIT license. Please read the full license [here](https://github.com/driscollos/config/blob/main/LICENSE.md). 
+This repo is licensed under the MIT license. Please read the full license [here](https://github.com/driscollos/config/blob/main/LICENSE.md).
 
 # Config
 
-This library allows you to read configuration data from a variety of
-sources. Information is automatically merged according to the priority of the
-source. Sources are (in priority order):
+`config` is a Go library for loading configuration from multiple sources, with predictable precedence and hot-reload support.
 
-* Commandline arguments
-* Environment variables
-* Yaml or Json configuration files
+Sources (highest priority first):
 
-You can access configuration data by populating a struct or by direct access
-via function calls.
+1. **Command-line arguments**
+2. **Environment variables**
+3. **YAML or JSON config files**
 
-## Configuration Files
+You can either **populate a struct** using tags or **query values directly** by path.
 
-You can specify a file to read from, but the following files will be examined
-by default. If you have more than one of the files below, they will be merged
-and can override each other according to priority. The default files are
-(in priority order):
+---
 
-* * `env.local.json`
-* * `env.local.yml`
-* * `config.local.json`
-* * `config.local.yml`
-* * `env.json`
-* * `env.yml`
-* * `config.json`
-* * `config.yml`
-* * `config/config.json`
-* * `config/config.yml`
-* * `build/config.json`
-* * `build/config.yml`
+## Install
 
-## Populating A Struct
+```bash
+go get github.com/driscollos/config@latest
+```
 
-You can read configuration data by populating a struct. You can make use of the following tags in your structs:
+Import:
 
-* `default` - set a default value if no source data is found
-* `required` (`true`) - returns an error if no data is found for this variable
-* `src` - override the name of the data source - if you add `src="myVar"` to any variable, it will populate from the 
-environment variable or yaml or json variable `myVar`
-* `base64` - this will decode your sourced data from base64 encoding. Set this tag to
-  * `optional` - in this case the data will be decoded from base64. If decoding fails, the
-original value will be used. This is useful for times when the source of the data changes
-and sometimes you need to base64 encode, and sometimes not
-  * `true` - in this case the data will be decoded; if decoding fails the data will
-be set to the empty string
+```go
+import "github.com/driscollos/config"
+```
 
-Commandline arguments, environment variables and variables in 
-yaml or json files can be either a direct case match, or all in capitals eg.
-if your struct contains the variable `Name`, the environment variables `Name` and
-`NAME` will be a match. If you require an exact match, use the struct
-tag `literal` (set to true) to enforce an exact match.
+---
 
-## Code Examples
+## Why use `config`?
 
-### Populating A Struct
+- **Clear precedence**: CLI > ENV > files (merged in priority order).
+- **Hot reload**: automatically rehydrate structs or run callbacks when files change.
+- **Flexible struct tags**: `default`, `required`, `src`, `base64`, `literal`.
+- **Slice indexing and nested maps** supported in both YAML/JSON and env vars.
+- **Duration parsing** supports natural formats like `1h`, `2 hours`, `30m`.
+- **No spf13/viper dependency** — lightweight, focused, MIT-licensed.
+
+---
+
+## Configuration files
+
+If you don’t specify a file, `config` searches for these defaults (in priority order):
+
+- `env.local.json`
+- `env.local.yml`
+- `config.local.json`
+- `config.local.yml`
+- `env.json`
+- `env.yml`
+- `config.json`
+- `config.yml`
+- `config/config.json`
+- `config/config.yml`
+- `build/config.json`
+- `build/config.yml`
+
+Multiple files are merged; later files override earlier ones.
+
+---
+
+## Populating a struct
+
+You can annotate struct fields with tags:
+
+- `default:"value"` → fallback if no source found.
+- `required:"true"` → error if no data found.
+- `src:"NAME"` → override source key name.
+- `base64:"optional|true"` → decode base64:
+    - `optional`: decode if valid, otherwise use raw string.
+    - `true`: must decode, else empty string.
+- `literal:"true"` → enforce exact case match (by default keys match case-insensitive).
+
+### Example
 
 ```go
 package main
@@ -68,8 +84,9 @@ package main
 import (
     "encoding/json"
     "fmt"
-    "github.com/driscollos/config"
     "time"
+
+    "github.com/driscollos/config"
 )
 
 type Teacher struct {
@@ -91,14 +108,16 @@ type Teacher struct {
 func main() {
     t := Teacher{}
     c := config.New()
-    c.Populate(&t)
+    if err := c.Populate(&t); err != nil {
+        panic(err)
+    }
 
-    bytes, _ := json.Marshal(t)
-    fmt.Println(string(bytes))
+    b, _ := json.MarshalIndent(t, "", "  ")
+    fmt.Println(string(b))
 }
 ```
 
-And the associated yaml file (in this case `env.yml`)
+**env.yml**
 
 ```yaml
 Name: John
@@ -116,116 +135,88 @@ Classes:
       - Name: Jim
         Attendance: 80.5
         Enrolled: true
-      - Name: Tom
-        Attendance: 30.2
-        Enrolled: n
-      - Name: Henry
-        Attendance: 45.82
-        Enrolled: false
-      - Name: Laura
-        Attendance: 88.1
-  History:
-    ClassLength: 3 hours
-    Pupils:
-      - Name: Pete
-        Attendance: 81.4
-        Enrolled: 1
-    Location: Room C4
 LuckyNumbers:
   - 10
   - 21
   - 56
 ```
 
-The output of this code will be: 
+---
 
-```json
-{"Name":"John","Age":41,"Classes":{"Computer Science":{"Pupils":[{"Name":"Bob","Attendance":78.4,"Enrolled":true},{"Name":"Theresa","Attendance":81.6,"Enrolled":true},{"Name":"Jim","Attendance":80.5,"Enrolled":true},{"Name":"Tom","Attendance":30.2,"Enrolled":false},{"Name":"Henry","Attendance":45.82,"Enrolled":false},{"Name":"Laura","Attendance":88.1,"Enrolled":true}],"ClassLength":7200000000000,"Location":"Spare Classroom"},"History":{"Pupils":[{"Name":"Pete","Attendance":81.4,"Enrolled":true}],"ClassLength":10800000000000,"Location":"Room C4"}},"LuckyNumbers":[10,21,56],"LotteryPicks":[10,31,55]}
+## Environment variable overrides
+
+Environment variables override file values. Keys are normalized:
+
+- Spaces, dots, and hyphens → underscores.
+- Upper-cased.
+- Nested paths joined with `_`.
+
+Example:
+
+```bash
+export CLASSES_COMPUTER_SCIENCE_PUPILS_0_NAME="Steve"
 ```
 
-You can override any of the data in the yaml file by setting an environment variable (as these have higher priorty than yaml files). 
-For example running this:
+Overrides the first pupil’s name, even if originally set in YAML.
 
-```shell
-export Classes_Computer_Science_Pupils_0_Name="Steve"
+---
+
+## Accessing variables directly
+
+If you don’t want to bind to a struct, you can fetch values by path (underscore- or dot-separated). Examples:
+
+```go
+c := config.New()
+
+name := c.String("Classes.Computer_Science.Pupils.0.Name")
+age := c.Int("Age")
+ok   := c.Bool("Classes.History.Pupils.0.Enrolled")
 ```
 
-will change the output of the code to this:
+Available helpers:
 
-```json
-{"Name":"John","Age":41,"Classes":{"Computer Science":{"Pupils":[{"Name":"Steve","Attendance":78.4,"Enrolled":true},{"Name":"Theresa","Attendance":81.6,"Enrolled":true},{"Name":"Jim","Attendance":80.5,"Enrolled":true},{"Name":"Tom","Attendance":30.2,"Enrolled":false},{"Name":"Henry","Attendance":45.82,"Enrolled":false},{"Name":"Laura","Attendance":88.1,"Enrolled":true}],"ClassLength":7200000000000,"Location":"Spare Classroom"},"History":{"Pupils":[{"Name":"Pete","Attendance":81.4,"Enrolled":true}],"ClassLength":10800000000000,"Location":"Room C4"}},"LuckyNumbers":[10,21,56],"LotteryPicks":[10,31,55]}
-```
+- `Bool(param string) bool`
+- `Date(param string) time.Time`
+- `Exists(name string) bool`
+- `Float(param string) float64`
+- `Int(param string) int`
+- `IntWithDefault(param string, defaultVal int) int`
+- `String(param string) string`
+- `StringWithDefault(param, defaultVal string) string`
 
-Note that:
+---
 
-* You can populate elements of a slice by adding the integer index to your env variable
-* Spaces in the name of variables eg. the class `Computer Science` should be converted to underscores eg `Computer_Science`
+## Duration formats
 
-## Accessing Variables Directly
+`time.Duration` fields accept a wide range of inputs:
 
-You can access parameters with the following type functions. Give the name of the variable you want to access; separate levels of nested fields
-with an underscore eg. `Classes_Computer_Science_Pupils_0_Name`.
+- `1s1m1h1d`
+- `1s, 1m, 1h, 1d`
+- `1 second, 1 minute, 1 hour, 1 day`
+- `1 sec, 1 min, 1 hr, 1d`
 
-These functions will take environment variables and provide them in various formats.
+---
 
-* `Bool(param string) bool`
-* `Date(param string) time.Time`
-* `Exists(name string) bool`
-* `Float(param string) float64`
-* `Int(param string) int`
-* `IntWithDefault(param string, defaultVal int) int`
-* `String(param string) string`
-* `StringWithDefault(param, defaultVal string) string`
-
-## Duration Supported Formats
-
-Parsing of `time.Duration` default values in struct tags supports a variety of conventions. All of the following are supported defaults:
-
-* `1s1m1h1d`
-* `1s, 1m, 1h, 1d`
-* `1 second, 1 minute, 1 hour, 1 day`
-* `1 sec, 1 minute, 1 hr, 1d`
-* `1 second, 1 min, 1hr, 1 day`
-
-## Specifying a file to source data from
-
-You can specify the exact file which should be used to populate your config. If you specify a source file, 
-all other potential file sources will be ignored. Data from the terminal and the environment
-will still take precedence, in that order. Here is an example:
+## Specifying a file explicitly
 
 ```go
 c := config.New()
 c.Source("./env.yml")
 ```
 
-## Hot Reload
+This disables default file discovery and loads only from the given file (plus env/CLI overrides).
 
-You can reload your configuration on the fly without stopping your service.
-In order to do this, you must make a change to any of the files which contained
-data when your service started up eg `env.local.yml`. If one of the options
-for a local data file did not exist when the service started, it will not be
-checked for changes.
+---
 
-### Using Hot Reload
+## Hot reload
 
-To activate hot reload, call the `HotReload(ctx context.Context, actions ...interface{})` 
-function. The first parameter is a context; if the context is ever `done` then
-the hot reload functionality will cease. This is very useful for handling
-os signals.
+`config` can watch source files and update values at runtime.
 
-The second parameter is a variadic list of actions, which are defined as either
-a pointer to a `struct` or a function which has no parameters. You can supply
-any number of these in any order you like. If you pass a pointer to a struct
-it will be rehydrated from the latest information whenever the source data
-changes; it is the same as calling the `Populate()` function.
+- Files must exist at startup to be watched.
+- On change, all watched files are reloaded atomically.
+- You can re-hydrate structs or run callback functions.
 
-If you pass a function with no parameters, it will be called any time the
-source data changes; you can use this to update db connections or reload
-anything which relies upon the data in your configuration.
-
-In the example below, we rehydrate the struct `myInformation` every time
-the underlying data changes, and we also call a function which makes use
-of a closure to act on the new data.
+### Example
 
 ```go
 package main
@@ -233,29 +224,43 @@ package main
 import (
     "context"
     "fmt"
-    "github.com/driscollos/config"
     "time"
+
+    "github.com/driscollos/config"
 )
-
-func main() {
-    c := config.New()
-    myInformation := myData{}
-    if err := c.Populate(&myInformation); err != nil {
-        fmt.Println("error", err.Error())
-    }
-    c.HotReload(context.Background(), &myInformation, func() {
-        func(data myData) {
-            fmt.Println("new name is:", data.Name)
-        }(myInformation)
-    })
-
-    for {
-        fmt.Println("name", myInformation.Name)
-        time.Sleep(time.Second)
-    }
-}
 
 type myData struct {
     Name string
 }
+
+func main() {
+    c := config.New()
+    data := myData{}
+    if err := c.Populate(&data); err != nil {
+        panic(err)
+    }
+
+    c.HotReload(context.Background(), &data, func() {
+        fmt.Println("new name is:", data.Name)
+    })
+
+    for {
+        fmt.Println("name", data.Name)
+        time.Sleep(time.Second)
+    }
+}
 ```
+
+---
+
+## Contributing
+
+- Run tests: `go test -race ./...`
+- Generate mocks: `go generate ./...`
+- Please open PRs or issues for bug reports and enhancements.
+
+---
+
+## License
+
+MIT © [John Driscoll](https://github.com/codebyjdd). See [LICENSE.md](LICENSE.md).
