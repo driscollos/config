@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	durationParser "github.com/driscollos/config/internal/populator/duration-parser"
 	floatParser "github.com/driscollos/config/internal/populator/float-parser"
@@ -27,6 +28,10 @@ type populator struct {
 	floatParser    floatParser.FloatParser
 	durationParser durationParser.DurationParser
 }
+
+var (
+	timeType = reflect.TypeOf(time.Time{})
+)
 
 func (p populator) Populate(dest interface{}) error {
 	if dest == nil {
@@ -112,7 +117,65 @@ func newOf(t reflect.Type) reflect.Value {
 	return reflect.New(elemType(t)).Elem()
 }
 
+// parseTime parses common config-friendly time formats.
+func parseTime(raw string) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, fmt.Errorf("blank time")
+	}
+
+	// RFC3339 / RFC3339Nano
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t, nil
+	}
+
+	// YYYY-MM-DD HH:MM:SS
+	if t, err := time.Parse("2006-01-02 15:04:05", raw); err == nil {
+		return t, nil
+	}
+
+	// YYYY-MM-DD HH:MM
+	if t, err := time.Parse("2006-01-02 15:04", raw); err == nil {
+		return t, nil
+	}
+
+	// YYYY-MM-DD HH
+	if t, err := time.Parse("2006-01-02 15", raw); err == nil {
+		return t, nil
+	}
+
+	// YYYY-MM-DD
+	if t, err := time.Parse("2006-01-02", raw); err == nil {
+		return t, nil
+	}
+
+	if t, err := time.Parse(time.RFC3339Nano, raw); err == nil {
+		return t, nil
+	}
+
+	return time.Time{}, fmt.Errorf("invalid time %q (expected YYYY-MM-DD or RFC3339)", raw)
+}
+
 func (p populator) setScalarFromString(f reflect.Value, ft reflect.StructField, value string, required bool, name string) error {
+	// Handle time.Time even though it's a struct (reflect.Struct), because we want scalar parsing.
+	if f.IsValid() && f.Type() == timeType {
+		if strings.TrimSpace(value) == "" {
+			if required {
+				return fmt.Errorf(ErrorMissingRequiredValue, name)
+			}
+			return nil
+		}
+		tm, err := parseTime(value)
+		if err != nil {
+			if required {
+				return fmt.Errorf("%s: %v", name, err)
+			}
+			return nil
+		}
+		f.Set(reflect.ValueOf(tm))
+		return nil
+	}
+
 	switch f.Kind() {
 	case reflect.String:
 		f.SetString(value)
@@ -270,6 +333,7 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 			}
 
 		case reflect.Slice:
+			// []byte
 			if f.Type().Elem().Kind() == reflect.Uint8 {
 				f.SetBytes([]byte(value))
 				if required && len(value) == 0 {
@@ -278,6 +342,40 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 				continue
 			}
 
+			// []time.Time / []*time.Time
+			if f.Type().Elem() == timeType || (f.Type().Elem().Kind() == reflect.Ptr && f.Type().Elem().Elem() == timeType) {
+				strs, _ := p.parseSliceStrings(value)
+				if required && len(strs) == 0 {
+					return fmt.Errorf(ErrorMissingRequiredValue, name)
+				}
+				out := reflect.MakeSlice(f.Type(), 0, len(strs))
+				for _, s := range strs {
+					if strings.TrimSpace(s) == "" {
+						continue
+					}
+					tm, err := parseTime(s)
+					if err != nil {
+						if required {
+							return fmt.Errorf("%s: %v", name, err)
+						}
+						continue
+					}
+					if f.Type().Elem() == timeType {
+						out = reflect.Append(out, reflect.ValueOf(tm))
+					} else {
+						ptr := reflect.New(timeType)
+						ptr.Elem().Set(reflect.ValueOf(tm))
+						out = reflect.Append(out, ptr)
+					}
+				}
+				if required && out.Len() == 0 {
+					return fmt.Errorf(ErrorMissingRequiredValue, name)
+				}
+				f.Set(out)
+				continue
+			}
+
+			// []struct (user-defined)
 			if f.Type().Elem().Kind() == reflect.Struct {
 				count := p.getSliceCount(value)
 				if required && count < 1 {
@@ -371,12 +469,41 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 			}
 
 		case reflect.Struct:
+			// Special-case time.Time (cannot populate via field recursion; fields are unexported).
+			if f.Type() == timeType {
+				if err := p.setScalarFromString(f, ft, value, required, name); err != nil {
+					return err
+				}
+				continue
+			}
 			if err := p.populate(f.Type(), f, name); err != nil {
 				return err
 			}
 
 		case reflect.Ptr:
 			elemT := f.Type().Elem()
+
+			// Special-case *time.Time
+			if elemT == timeType {
+				if strings.TrimSpace(value) == "" {
+					if required {
+						return fmt.Errorf(ErrorMissingRequiredValue, name)
+					}
+					continue
+				}
+				tm, err := parseTime(value)
+				if err != nil {
+					if required {
+						return fmt.Errorf("%s: %v", name, err)
+					}
+					continue
+				}
+				ptr := reflect.New(timeType)
+				ptr.Elem().Set(reflect.ValueOf(tm))
+				f.Set(ptr)
+				continue
+			}
+
 			elemV := reflect.New(elemT).Elem()
 			if elemV.Kind() == reflect.Struct {
 				if err := p.populate(elemT, elemV, prefix); err != nil {

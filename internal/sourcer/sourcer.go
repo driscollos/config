@@ -104,9 +104,11 @@ func (s *sourcer) HotReload(ctx context.Context, onChange func()) {
 					data := make(map[string]interface{})
 					switch ext := fileExt(file); ext {
 					case "yml", "yaml":
-						if err := yaml.Unmarshal(bytes, &data); err != nil {
+						m, err := parseYAMLToMap(bytes)
+						if err != nil {
 							continue
 						}
+						data = m
 					case "json":
 						if err := json.Unmarshal(bytes, &data); err != nil {
 							continue
@@ -185,9 +187,6 @@ func (s *sourcer) Get(path string) string {
 		b, _ := json.Marshal(v) // lossless; populator can parse
 		return string(b)
 	default:
-		if b, err := json.Marshal(v); err == nil {
-			return string(b)
-		}
 		return strings.TrimSpace(fmt.Sprintf("%v", v))
 	}
 }
@@ -243,9 +242,11 @@ func (s *sourcer) loadFromSource(filename string, source []byte) error {
 
 	switch ext {
 	case "yml", "yaml":
-		if err := yaml.Unmarshal(source, &data); err != nil {
+		m, err := parseYAMLToMap(source)
+		if err != nil {
 			return err
 		}
+		data = m
 	case "json":
 		if err := json.Unmarshal(source, &data); err != nil {
 			return err
@@ -256,6 +257,64 @@ func (s *sourcer) loadFromSource(filename string, source []byte) error {
 
 	s.values = append(s.values, data)
 	return nil
+}
+
+// parseYAMLToMap parses YAML into a generic map but preserves *all scalars* as strings.
+// This avoids YAML timestamp coercion (e.g. 2026-01-01 -> time.Time) and keeps sourcer "string-first".
+func parseYAMLToMap(source []byte) (map[string]interface{}, error) {
+	var root yaml.Node
+	if err := yaml.Unmarshal(source, &root); err != nil {
+		return nil, err
+	}
+	anyVal := yamlNodeToAny(&root)
+
+	m, ok := anyVal.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("yaml root must be a mapping")
+	}
+	return m, nil
+}
+
+// yamlNodeToAny converts a yaml.Node tree into interface{}:
+// - mappings -> map[string]interface{}
+// - sequences -> []interface{}
+// - scalars -> string (node.Value)
+func yamlNodeToAny(n *yaml.Node) interface{} {
+	if n == nil {
+		return nil
+	}
+
+	switch n.Kind {
+	case yaml.DocumentNode:
+		if len(n.Content) == 1 {
+			return yamlNodeToAny(n.Content[0])
+		}
+		return nil
+
+	case yaml.MappingNode:
+		m := make(map[string]interface{}, len(n.Content)/2)
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			k := n.Content[i]
+			v := n.Content[i+1]
+			// keys are scalars; use their raw value
+			m[k.Value] = yamlNodeToAny(v)
+		}
+		return m
+
+	case yaml.SequenceNode:
+		out := make([]interface{}, 0, len(n.Content))
+		for _, c := range n.Content {
+			out = append(out, yamlNodeToAny(c))
+		}
+		return out
+
+	case yaml.ScalarNode:
+		// IMPORTANT: preserve original scalar text for populator to interpret.
+		return n.Value
+
+	default:
+		return nil
+	}
 }
 
 // get traverses a nested map[string]interface{} using either "_" or "." separators.
@@ -296,7 +355,7 @@ func (s *sourcer) get(source map[string]interface{}, path string) interface{} {
 			if err != nil {
 				return nil
 			}
-			if idx < 0 || idx >= len(node) { // ✅ correct slice bounds check
+			if idx < 0 || idx >= len(node) {
 				return nil
 			}
 			cur = node[idx]
