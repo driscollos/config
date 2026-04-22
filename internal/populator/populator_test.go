@@ -6,6 +6,7 @@ package populator
 
 import (
 	"testing"
+	"time"
 
 	"github.com/driscollos/config/internal/mocks"
 	floatParser "github.com/driscollos/config/internal/populator/float-parser"
@@ -157,6 +158,57 @@ var _ = Describe("Unit tests", func() {
 				err := myPopulator.Populate(&myStruct)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(myStruct.Hobbies).To(Equal([]string{"Travel", "Adventure"}))
+			})
+		})
+		When("a struct is provided with numeric slices", func() {
+			It("should populate each slice using the parsed numeric values", func() {
+				myStruct := struct {
+					Ints   []int
+					Uints  []uint
+					Floats []float64
+				}{}
+
+				mockSourcer.EXPECT().Get("Ints").Return("1,2,3")
+				mockSourcer.EXPECT().Get("Uints").Return("4,5,6")
+				mockSourcer.EXPECT().Get("Floats").Return("1.5,2.25,3.75")
+
+				err := myPopulator.Populate(&myStruct)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(myStruct.Ints).To(Equal([]int{1, 2, 3}))
+				Expect(myStruct.Uints).To(Equal([]uint{4, 5, 6}))
+				Expect(myStruct.Floats).To(Equal([]float64{1.5, 2.25, 3.75}))
+			})
+		})
+		When("a struct contains a pointer to another struct", func() {
+			It("should preserve the field prefix while populating the nested struct", func() {
+				type database struct {
+					Host string
+				}
+				myStruct := struct {
+					Database *database
+				}{}
+
+				mockSourcer.EXPECT().Get("Database").Return("")
+				mockSourcer.EXPECT().Get("Database_Host").Return("db.internal")
+
+				err := myPopulator.Populate(&myStruct)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(myStruct.Database).ToNot(BeNil())
+				Expect(myStruct.Database.Host).To(Equal("db.internal"))
+			})
+		})
+		When("a struct is provided with a pointer to time", func() {
+			It("should still populate scalar pointer fields", func() {
+				myStruct := struct {
+					StartsAt *time.Time
+				}{}
+
+				mockSourcer.EXPECT().Get("StartsAt").Return("2026-01-02T03:04:05Z")
+
+				err := myPopulator.Populate(&myStruct)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(myStruct.StartsAt).ToNot(BeNil())
+				Expect(myStruct.StartsAt.UTC()).To(Equal(time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)))
 			})
 		})
 	})
