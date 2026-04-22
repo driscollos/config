@@ -5,10 +5,13 @@
 package sourcer
 
 import (
+	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/driscollos/config/internal/mocks"
 	. "github.com/onsi/ginkgo"
@@ -164,6 +167,36 @@ Scores:
 					mySourcer.Source("mysource")
 					Expect(mySourcer.Get("Name")).To(Equal(""))
 				})
+			})
+		})
+
+		When("hot reload sees a changed file that becomes invalid", func() {
+			It("should keep the last good values and avoid firing callbacks", func() {
+				dir, err := os.MkdirTemp("/tmp", "config-hot-reload-*")
+				Expect(err).ToNot(HaveOccurred())
+				defer os.RemoveAll(dir)
+
+				file := filepath.Join(dir, "config.yml")
+				Expect(os.WriteFile(file, []byte("Name: before\n"), 0o600)).To(Succeed())
+
+				reloadSourcer := New().(*sourcer)
+				reloadSourcer.Source(file)
+				Expect(reloadSourcer.Get("Name")).To(Equal("before"))
+
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+
+				callbacks := 0
+				reloadSourcer.HotReload(ctx, func() {
+					callbacks++
+				})
+
+				time.Sleep(1100 * time.Millisecond)
+				Expect(os.WriteFile(file, []byte(":\n"), 0o600)).To(Succeed())
+
+				time.Sleep(1500 * time.Millisecond)
+				Expect(reloadSourcer.Get("Name")).To(Equal("before"))
+				Expect(callbacks).To(Equal(0))
 			})
 		})
 	})

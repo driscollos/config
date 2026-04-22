@@ -85,10 +85,12 @@ func (s *sourcer) HotReload(ctx context.Context, onChange func()) {
 				changed := false
 				newValues := make([]map[string]interface{}, 0, len(files))
 				newMtimes := make(map[string]time.Time, len(files))
+				reloadFailed := false
 
 				for _, file := range files {
 					info, err := os.Stat(file)
 					if err != nil {
+						reloadFailed = true
 						continue
 					}
 					// Detect change
@@ -98,6 +100,7 @@ func (s *sourcer) HotReload(ctx context.Context, onChange func()) {
 
 					bytes, err := os.ReadFile(file)
 					if err != nil {
+						reloadFailed = true
 						continue
 					}
 
@@ -106,14 +109,17 @@ func (s *sourcer) HotReload(ctx context.Context, onChange func()) {
 					case "yml", "yaml":
 						m, err := parseYAMLToMap(bytes)
 						if err != nil {
+							reloadFailed = true
 							continue
 						}
 						data = m
 					case "json":
 						if err := json.Unmarshal(bytes, &data); err != nil {
+							reloadFailed = true
 							continue
 						}
 					default:
+						reloadFailed = true
 						continue
 					}
 
@@ -121,7 +127,7 @@ func (s *sourcer) HotReload(ctx context.Context, onChange func()) {
 					newMtimes[file] = info.ModTime()
 				}
 
-				if changed {
+				if changed && !reloadFailed && len(newValues) == len(files) {
 					s.mu.Lock()
 					s.values = newValues // replace, don't append
 					// update mtimes

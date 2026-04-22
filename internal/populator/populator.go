@@ -425,7 +425,7 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 					for _, s := range strs {
 						i, err := strconv.ParseInt(s, 10, 64)
 						if err == nil {
-							out = reflect.Append(out, reflect.New(f.Type().Elem()).Elem().Convert(reflect.TypeOf(i)))
+							out = reflect.Append(out, reflect.ValueOf(i).Convert(f.Type().Elem()))
 						}
 					}
 					if required && out.Len() == 0 {
@@ -439,7 +439,7 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 				for _, s := range strs {
 					u, err := strconv.ParseUint(s, 10, 64)
 					if err == nil {
-						out = reflect.Append(out, reflect.New(f.Type().Elem()).Elem().Convert(reflect.TypeOf(u)))
+						out = reflect.Append(out, reflect.ValueOf(u).Convert(f.Type().Elem()))
 					}
 				}
 				if required && out.Len() == 0 {
@@ -452,7 +452,7 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 				for _, s := range strs {
 					fv, err := p.floatParser.Float64(s)
 					if err == nil {
-						out = reflect.Append(out, reflect.New(f.Type().Elem()).Elem().Convert(reflect.TypeOf(fv)))
+						out = reflect.Append(out, reflect.ValueOf(fv).Convert(f.Type().Elem()))
 					}
 				}
 				if required && out.Len() == 0 {
@@ -506,7 +506,7 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 
 			elemV := reflect.New(elemT).Elem()
 			if elemV.Kind() == reflect.Struct {
-				if err := p.populate(elemT, elemV, prefix); err != nil {
+				if err := p.populate(elemT, elemV, name); err != nil {
 					return err
 				}
 				if !isZero(elemV) || required {
