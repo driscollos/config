@@ -160,6 +160,25 @@ var _ = Describe("Unit tests", func() {
 				Expect(myStruct.Hobbies).To(Equal([]string{"Travel", "Adventure"}))
 			})
 		})
+		When("a struct is provided with a map of string slices", func() {
+			It("should populate each map value from the nested source", func() {
+				myStruct := struct {
+					BadWords map[string][]string
+				}{}
+
+				mockSourcer.EXPECT().Get("BadWords").Return(`{"abbo":["abbot"],"anus":["uranus"]}`)
+				mockSourcer.EXPECT().Get("BadWords").Return(`{"abbo":["abbot"],"anus":["uranus"]}`)
+				mockSourcer.EXPECT().Get("BadWords_abbo").Return(`["abbot"]`)
+				mockSourcer.EXPECT().Get("BadWords_anus").Return(`["uranus"]`)
+
+				err := myPopulator.Populate(&myStruct)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(myStruct.BadWords).To(Equal(map[string][]string{
+					"abbo": {"abbot"},
+					"anus": {"uranus"},
+				}))
+			})
+		})
 		When("a struct is provided with numeric slices", func() {
 			It("should populate each slice using the parsed numeric values", func() {
 				myStruct := struct {

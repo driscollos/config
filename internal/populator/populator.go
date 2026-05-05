@@ -288,6 +288,129 @@ func (p populator) parseSliceStrings(raw string) ([]string, error) {
 	return parseCSV(raw), nil
 }
 
+func (p populator) setSliceFromString(f reflect.Value, value string, required bool, name string) error {
+	// []byte
+	if f.Type().Elem().Kind() == reflect.Uint8 {
+		f.SetBytes([]byte(value))
+		if required && len(value) == 0 {
+			return fmt.Errorf(ErrorMissingRequiredValue, name)
+		}
+		return nil
+	}
+
+	// []time.Time / []*time.Time
+	if f.Type().Elem() == timeType || (f.Type().Elem().Kind() == reflect.Ptr && f.Type().Elem().Elem() == timeType) {
+		strs, _ := p.parseSliceStrings(value)
+		if required && len(strs) == 0 {
+			return fmt.Errorf(ErrorMissingRequiredValue, name)
+		}
+		out := reflect.MakeSlice(f.Type(), 0, len(strs))
+		for _, s := range strs {
+			if strings.TrimSpace(s) == "" {
+				continue
+			}
+			tm, err := parseTime(s)
+			if err != nil {
+				if required {
+					return fmt.Errorf("%s: %v", name, err)
+				}
+				continue
+			}
+			if f.Type().Elem() == timeType {
+				out = reflect.Append(out, reflect.ValueOf(tm))
+			} else {
+				ptr := reflect.New(timeType)
+				ptr.Elem().Set(reflect.ValueOf(tm))
+				out = reflect.Append(out, ptr)
+			}
+		}
+		if required && out.Len() == 0 {
+			return fmt.Errorf(ErrorMissingRequiredValue, name)
+		}
+		f.Set(out)
+		return nil
+	}
+
+	strs, _ := p.parseSliceStrings(value)
+	if required && len(strs) == 0 {
+		return fmt.Errorf(ErrorMissingRequiredValue, name)
+	}
+
+	switch f.Type().Elem().Kind() {
+	case reflect.String:
+		rv := reflect.MakeSlice(f.Type(), 0, len(strs))
+		for _, s := range strs {
+			rv = reflect.Append(rv, reflect.ValueOf(s))
+		}
+		f.Set(rv)
+
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if f.Type().Elem().Name() == "Duration" {
+			out := reflect.MakeSlice(f.Type(), 0, len(strs))
+			for _, s := range strs {
+				if s == "" {
+					continue
+				}
+				d, err := p.durationParser.Parse(s)
+				if err == nil {
+					out = reflect.Append(out, reflect.ValueOf(d))
+				}
+			}
+			if required && out.Len() == 0 {
+				return fmt.Errorf(ErrorMissingRequiredValue, name)
+			}
+			f.Set(out)
+		} else {
+			out := reflect.MakeSlice(f.Type(), 0, len(strs))
+			for _, s := range strs {
+				i, err := strconv.ParseInt(s, 10, 64)
+				if err == nil {
+					out = reflect.Append(out, reflect.ValueOf(i).Convert(f.Type().Elem()))
+				}
+			}
+			if required && out.Len() == 0 {
+				return fmt.Errorf(ErrorMissingRequiredValue, name)
+			}
+			f.Set(out)
+		}
+
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		out := reflect.MakeSlice(f.Type(), 0, len(strs))
+		for _, s := range strs {
+			u, err := strconv.ParseUint(s, 10, 64)
+			if err == nil {
+				out = reflect.Append(out, reflect.ValueOf(u).Convert(f.Type().Elem()))
+			}
+		}
+		if required && out.Len() == 0 {
+			return fmt.Errorf(ErrorMissingRequiredValue, name)
+		}
+		f.Set(out)
+
+	case reflect.Float32, reflect.Float64:
+		out := reflect.MakeSlice(f.Type(), 0, len(strs))
+		for _, s := range strs {
+			fv, err := p.floatParser.Float64(s)
+			if err == nil {
+				out = reflect.Append(out, reflect.ValueOf(fv).Convert(f.Type().Elem()))
+			}
+		}
+		if required && out.Len() == 0 {
+			return fmt.Errorf(ErrorMissingRequiredValue, name)
+		}
+		f.Set(out)
+
+	case reflect.Bool:
+		out := reflect.MakeSlice(f.Type(), 0, len(strs))
+		for _, s := range strs {
+			out = reflect.Append(out, reflect.ValueOf(parseBool(s)))
+		}
+		f.Set(out)
+	}
+
+	return nil
+}
+
 func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) error {
 	for i := 0; i < v.NumField(); i++ {
 		ft := t.Field(i)
@@ -323,9 +446,19 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 			for _, k := range keys {
 				keyV := reflect.ValueOf(k).Convert(f.Type().Key())
 				elemV := newOf(elemT)
+				elemName := fmt.Sprintf("%s_%s", name, k)
+				elemValue := p.src.Get(elemName)
 
 				if elemV.Kind() == reflect.Struct {
-					if err := p.populate(elemT, elemV, fmt.Sprintf("%s_%s", name, k)); err != nil {
+					if err := p.populate(elemT, elemV, elemName); err != nil {
+						return err
+					}
+				} else if elemV.Kind() == reflect.Slice {
+					if err := p.setSliceFromString(elemV, elemValue, required, elemName); err != nil {
+						return err
+					}
+				} else {
+					if err := p.setScalarFromString(elemV, ft, elemValue, required, elemName); err != nil {
 						return err
 					}
 				}
@@ -333,48 +466,6 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 			}
 
 		case reflect.Slice:
-			// []byte
-			if f.Type().Elem().Kind() == reflect.Uint8 {
-				f.SetBytes([]byte(value))
-				if required && len(value) == 0 {
-					return fmt.Errorf(ErrorMissingRequiredValue, name)
-				}
-				continue
-			}
-
-			// []time.Time / []*time.Time
-			if f.Type().Elem() == timeType || (f.Type().Elem().Kind() == reflect.Ptr && f.Type().Elem().Elem() == timeType) {
-				strs, _ := p.parseSliceStrings(value)
-				if required && len(strs) == 0 {
-					return fmt.Errorf(ErrorMissingRequiredValue, name)
-				}
-				out := reflect.MakeSlice(f.Type(), 0, len(strs))
-				for _, s := range strs {
-					if strings.TrimSpace(s) == "" {
-						continue
-					}
-					tm, err := parseTime(s)
-					if err != nil {
-						if required {
-							return fmt.Errorf("%s: %v", name, err)
-						}
-						continue
-					}
-					if f.Type().Elem() == timeType {
-						out = reflect.Append(out, reflect.ValueOf(tm))
-					} else {
-						ptr := reflect.New(timeType)
-						ptr.Elem().Set(reflect.ValueOf(tm))
-						out = reflect.Append(out, ptr)
-					}
-				}
-				if required && out.Len() == 0 {
-					return fmt.Errorf(ErrorMissingRequiredValue, name)
-				}
-				f.Set(out)
-				continue
-			}
-
 			// []struct (user-defined)
 			if f.Type().Elem().Kind() == reflect.Struct {
 				count := p.getSliceCount(value)
@@ -391,81 +482,8 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 				continue
 			}
 
-			strs, _ := p.parseSliceStrings(value)
-			if required && len(strs) == 0 {
-				return fmt.Errorf(ErrorMissingRequiredValue, name)
-			}
-
-			switch f.Type().Elem().Kind() {
-			case reflect.String:
-				rv := reflect.MakeSlice(f.Type(), 0, len(strs))
-				for _, s := range strs {
-					rv = reflect.Append(rv, reflect.ValueOf(s))
-				}
-				f.Set(rv)
-
-			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				if f.Type().Elem().Name() == "Duration" {
-					out := reflect.MakeSlice(f.Type(), 0, len(strs))
-					for _, s := range strs {
-						if s == "" {
-							continue
-						}
-						d, err := p.durationParser.Parse(s)
-						if err == nil {
-							out = reflect.Append(out, reflect.ValueOf(d))
-						}
-					}
-					if required && out.Len() == 0 {
-						return fmt.Errorf(ErrorMissingRequiredValue, name)
-					}
-					f.Set(out)
-				} else {
-					out := reflect.MakeSlice(f.Type(), 0, len(strs))
-					for _, s := range strs {
-						i, err := strconv.ParseInt(s, 10, 64)
-						if err == nil {
-							out = reflect.Append(out, reflect.ValueOf(i).Convert(f.Type().Elem()))
-						}
-					}
-					if required && out.Len() == 0 {
-						return fmt.Errorf(ErrorMissingRequiredValue, name)
-					}
-					f.Set(out)
-				}
-
-			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-				out := reflect.MakeSlice(f.Type(), 0, len(strs))
-				for _, s := range strs {
-					u, err := strconv.ParseUint(s, 10, 64)
-					if err == nil {
-						out = reflect.Append(out, reflect.ValueOf(u).Convert(f.Type().Elem()))
-					}
-				}
-				if required && out.Len() == 0 {
-					return fmt.Errorf(ErrorMissingRequiredValue, name)
-				}
-				f.Set(out)
-
-			case reflect.Float32, reflect.Float64:
-				out := reflect.MakeSlice(f.Type(), 0, len(strs))
-				for _, s := range strs {
-					fv, err := p.floatParser.Float64(s)
-					if err == nil {
-						out = reflect.Append(out, reflect.ValueOf(fv).Convert(f.Type().Elem()))
-					}
-				}
-				if required && out.Len() == 0 {
-					return fmt.Errorf(ErrorMissingRequiredValue, name)
-				}
-				f.Set(out)
-
-			case reflect.Bool:
-				out := reflect.MakeSlice(f.Type(), 0, len(strs))
-				for _, s := range strs {
-					out = reflect.Append(out, reflect.ValueOf(parseBool(s)))
-				}
-				f.Set(out)
+			if err := p.setSliceFromString(f, value, required, name); err != nil {
+				return err
 			}
 
 		case reflect.Struct:
