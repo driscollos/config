@@ -134,6 +134,9 @@ func (c config) Int(param string) int {
 // population this will be reflected in the error return variable - this includes failing to populate fields which are marked
 // as required:"true" in struct tags
 func (c config) Populate(container interface{}) error {
+	if container == nil {
+		return errors.New("pass a pointer to Populate() instead of a struct i.e. Populate(&myConfig)")
+	}
 	if reflect.ValueOf(container).Kind() == reflect.Struct {
 		return errors.New("pass a pointer to Populate() instead of a struct i.e. Populate(&myConfig)")
 	}

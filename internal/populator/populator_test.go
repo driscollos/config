@@ -44,6 +44,16 @@ var _ = Describe("Unit tests", func() {
 	})
 
 	Context("Populating a struct", func() {
+		When("a typed nil pointer is provided", func() {
+			It("should return an error instead of panicking", func() {
+				var myStruct *struct {
+					Name string
+				}
+
+				err := myPopulator.Populate(myStruct)
+				Expect(err).To(MatchError(ErrorNotPointer))
+			})
+		})
 		When("a struct is provided with a string in it", func() {
 			It("should populate the field appropriately", func() {
 				myStruct := struct {
@@ -196,6 +206,60 @@ var _ = Describe("Unit tests", func() {
 				Expect(myStruct.Ints).To(Equal([]int{1, 2, 3}))
 				Expect(myStruct.Uints).To(Equal([]uint{4, 5, 6}))
 				Expect(myStruct.Floats).To(Equal([]float64{1.5, 2.25, 3.75}))
+			})
+			It("should populate numeric slices from JSON arrays", func() {
+				myStruct := struct {
+					Ints   []int
+					Uints  []uint
+					Floats []float64
+				}{}
+
+				mockSourcer.EXPECT().Get("Ints").Return("[10,21,56]")
+				mockSourcer.EXPECT().Get("Uints").Return("[4,5,6]")
+				mockSourcer.EXPECT().Get("Floats").Return("[1.5,2.25,3.75]")
+
+				err := myPopulator.Populate(&myStruct)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(myStruct.Ints).To(Equal([]int{10, 21, 56}))
+				Expect(myStruct.Uints).To(Equal([]uint{4, 5, 6}))
+				Expect(myStruct.Floats).To(Equal([]float64{1.5, 2.25, 3.75}))
+			})
+		})
+		When("a struct is provided with a map of pointer values", func() {
+			It("should populate pointer scalar values without panicking", func() {
+				myStruct := struct {
+					Names map[string]*string
+				}{}
+
+				mockSourcer.EXPECT().Get("Names").Return(`{"primary":"Bob"}`)
+				mockSourcer.EXPECT().Get("Names").Return(`{"primary":"Bob"}`)
+				mockSourcer.EXPECT().Get("Names_primary").Return("Bob")
+
+				err := myPopulator.Populate(&myStruct)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(myStruct.Names).To(HaveKey("primary"))
+				Expect(myStruct.Names["primary"]).ToNot(BeNil())
+				Expect(*myStruct.Names["primary"]).To(Equal("Bob"))
+			})
+
+			It("should populate pointer struct values without panicking", func() {
+				type endpoint struct {
+					Host string
+				}
+				myStruct := struct {
+					Endpoints map[string]*endpoint
+				}{}
+
+				mockSourcer.EXPECT().Get("Endpoints").Return(`{"api":{"Host":"api.internal"}}`)
+				mockSourcer.EXPECT().Get("Endpoints").Return(`{"api":{"Host":"api.internal"}}`)
+				mockSourcer.EXPECT().Get("Endpoints_api").Return("")
+				mockSourcer.EXPECT().Get("Endpoints_api_Host").Return("api.internal")
+
+				err := myPopulator.Populate(&myStruct)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(myStruct.Endpoints).To(HaveKey("api"))
+				Expect(myStruct.Endpoints["api"]).ToNot(BeNil())
+				Expect(myStruct.Endpoints["api"].Host).To(Equal("api.internal"))
 			})
 		})
 		When("a struct contains a pointer to another struct", func() {

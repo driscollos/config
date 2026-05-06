@@ -166,6 +166,11 @@ func (s *sourcer) Get(path string) string {
 		if val, ok := os.LookupEnv(path); ok && val != "" {
 			return val
 		}
+		if normalized := normalizeEnvKey(path); normalized != path {
+			if val, ok := os.LookupEnv(normalized); ok && val != "" {
+				return val
+			}
+		}
 	}
 
 	// 3) Files (later non-nil overrides earlier)
@@ -198,6 +203,15 @@ func (s *sourcer) Get(path string) string {
 }
 
 // --- internals ---
+
+func normalizeEnvKey(path string) string {
+	replacer := strings.NewReplacer(
+		" ", "_",
+		".", "_",
+		"-", "_",
+	)
+	return strings.ToUpper(replacer.Replace(path))
+}
 
 func (s *sourcer) setup() error {
 	s.mu.Lock()
