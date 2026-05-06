@@ -89,6 +89,8 @@ Age: 41
 				mockTerminalReader.EXPECT().Get("Scores_Three").Return("", errors.New("not_found"))
 				os.Setenv("Scores_One", "2")
 				os.Setenv("Scores_Two", "2")
+				defer os.Unsetenv("Scores_One")
+				defer os.Unsetenv("Scores_Two")
 				mockFileReader.EXPECT().Read("test.yaml").Return([]byte(strings.TrimSpace(`
 Scores:
   One: 3
@@ -101,6 +103,18 @@ Scores:
 				Expect(mySourcer.Get("Scores_Three")).To(Equal("3"))
 			})
 		})
+		When("an environment variable uses the documented normalized key format", func() {
+			It("should use the normalized value", func() {
+				const path = "Classes.Computer Science.Pupils.0.Name"
+				Expect(os.Setenv("CLASSES_COMPUTER_SCIENCE_PUPILS_0_NAME", "Steve")).To(Succeed())
+				defer os.Unsetenv("CLASSES_COMPUTER_SCIENCE_PUPILS_0_NAME")
+
+				mySourcer.sources.files = nil
+				mockTerminalReader.EXPECT().Get(path).Return("", errors.New("not_found"))
+
+				Expect(mySourcer.Get(path)).To(Equal("Steve"))
+			})
+		})
 
 		When("a source is specified manually and", func() {
 			When("there is data from a variable set on the terminal", func() {
@@ -108,6 +122,7 @@ Scores:
 					mockFileReader.EXPECT().Read("override.yaml").Return([]byte("Name: fromFile"), nil)
 					mockTerminalReader.EXPECT().Get("Name").Return("fromTerminal", nil)
 					Expect(os.Setenv("Name", "fromEnv")).ToNot(HaveOccurred())
+					defer os.Unsetenv("Name")
 					mySourcer.Source("override.yaml")
 					Expect(mySourcer.Get("Name")).To(Equal("fromTerminal"))
 				})
@@ -117,6 +132,7 @@ Scores:
 					mockFileReader.EXPECT().Read("override.yaml").Return([]byte("Name: fromFile"), nil)
 					mockTerminalReader.EXPECT().Get("Name").Return("", errors.New("not found"))
 					Expect(os.Setenv("Name", "fromEnv")).ToNot(HaveOccurred())
+					defer os.Unsetenv("Name")
 					mySourcer.Source("override.yaml")
 					Expect(mySourcer.Get("Name")).To(Equal("fromEnv"))
 				})
@@ -126,6 +142,7 @@ Scores:
 					mockFileReader.EXPECT().Read("override.yaml").Return([]byte("Name: fromFile"), nil)
 					mockTerminalReader.EXPECT().Get("Name").Return("", errors.New("not found"))
 					Expect(os.Setenv("Name", "")).ToNot(HaveOccurred())
+					defer os.Unsetenv("Name")
 					mySourcer.Source("override.yaml")
 					Expect(mySourcer.Get("Name")).To(Equal("fromFile"))
 				})

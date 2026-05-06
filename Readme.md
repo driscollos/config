@@ -76,6 +76,10 @@ You can annotate struct fields with tags:
     - `true`: must decode, else empty string.
 - `literal:"true"` → enforce exact case match (by default keys match case-insensitive).
 
+Slices can be provided as comma-separated values or JSON/YAML arrays. Numeric and boolean JSON arrays are converted to the target slice element type.
+
+Map values can be scalars, slices, structs, or pointers to those value types.
+
 ### Example
 
 ```go
@@ -145,7 +149,7 @@ LuckyNumbers:
 
 ## Environment variable overrides
 
-Environment variables override file values. Keys are normalized:
+Environment variables override file values. Exact keys are checked first, then normalized keys are checked:
 
 - Spaces, dots, and hyphens → underscores.
 - Upper-cased.

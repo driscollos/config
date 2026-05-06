@@ -41,7 +41,13 @@ func (p populator) Populate(dest interface{}) error {
 	if rt.Kind() != reflect.Ptr {
 		return errors.New(ErrorNotPointer)
 	}
+	if rt.Elem().Kind() != reflect.Struct {
+		return errors.New(ErrorNotPointer)
+	}
 	rv := reflect.ValueOf(dest).Elem()
+	if !rv.IsValid() {
+		return errors.New(ErrorNotPointer)
+	}
 	return p.populate(rt.Elem(), rv, "")
 }
 
@@ -285,6 +291,27 @@ func (p populator) parseSliceStrings(raw string) ([]string, error) {
 	if json.Unmarshal([]byte(raw), &arr) == nil {
 		return arr, nil
 	}
+	var vals []interface{}
+	if json.Unmarshal([]byte(raw), &vals) == nil {
+		out := make([]string, 0, len(vals))
+		for _, val := range vals {
+			switch v := val.(type) {
+			case string:
+				out = append(out, v)
+			case nil:
+				out = append(out, "")
+			case map[string]interface{}, []interface{}:
+				b, err := json.Marshal(v)
+				if err != nil {
+					return nil, err
+				}
+				out = append(out, string(b))
+			default:
+				out = append(out, strings.TrimSpace(fmt.Sprintf("%v", v)))
+			}
+		}
+		return out, nil
+	}
 	return parseCSV(raw), nil
 }
 
@@ -443,18 +470,23 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 				continue
 			}
 			elemT := f.Type().Elem()
+			elemBaseT := elemType(elemT)
 			for _, k := range keys {
 				keyV := reflect.ValueOf(k).Convert(f.Type().Key())
-				elemV := newOf(elemT)
+				elemV := newOf(elemBaseT)
 				elemName := fmt.Sprintf("%s_%s", name, k)
 				elemValue := p.src.Get(elemName)
 
-				if elemV.Kind() == reflect.Struct {
-					if err := p.populate(elemT, elemV, elemName); err != nil {
+				if elemV.Type() == timeType {
+					if err := p.setScalarFromString(elemV, ft, elemValue, required, elemName); err != nil {
 						return err
 					}
 				} else if elemV.Kind() == reflect.Slice {
 					if err := p.setSliceFromString(elemV, elemValue, required, elemName); err != nil {
+						return err
+					}
+				} else if elemV.Kind() == reflect.Struct {
+					if err := p.populate(elemBaseT, elemV, elemName); err != nil {
 						return err
 					}
 				} else {
@@ -462,7 +494,13 @@ func (p populator) populate(t reflect.Type, v reflect.Value, prefix string) erro
 						return err
 					}
 				}
-				f.SetMapIndex(keyV, elemV)
+				if elemT.Kind() == reflect.Ptr {
+					ptr := reflect.New(elemBaseT)
+					ptr.Elem().Set(elemV)
+					f.SetMapIndex(keyV, ptr)
+				} else {
+					f.SetMapIndex(keyV, elemV)
+				}
 			}
 
 		case reflect.Slice:
